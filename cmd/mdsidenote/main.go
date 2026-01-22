@@ -12,7 +12,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/dbh/md-tools/internal/cli"
@@ -45,10 +47,19 @@ type footnoteRef struct {
 
 // footnoteDef represents a footnote definition
 type footnoteDef struct {
-	start   int    // byte position of [^label]: ...
-	end     int    // byte position after the definition
-	ref     string // the footnote reference label
-	content string // the rendered HTML content
+	start      int    // byte position of [^label]: ...
+	end        int    // byte position after the definition
+	ref        string // the footnote reference label
+	content    string // the rendered HTML content
+	rawContent string // the raw markdown content (for reference tracking)
+}
+
+// linkDef represents a reference-style link definition
+type linkDef struct {
+	label string
+	url   string
+	start int // byte position in source
+	end   int // byte position after definition
 }
 
 func transform(content string) string {
@@ -63,6 +74,9 @@ func transform(content string) string {
 	ctx := parser.NewContext()
 	reader := text.NewReader(source)
 	doc := md.Parser().Parse(reader, parser.WithContext(ctx))
+
+	// Collect link reference definitions
+	linkDefs := collectLinkDefs(source)
 
 	// Collect footnote references and definitions
 	var refs []footnoteRef
@@ -86,18 +100,18 @@ func transform(content string) string {
 			}
 
 		case *extast.Footnote:
-			// Get the footnote content and render to HTML
+			// Get the footnote content
 			refLabel := string(node.Ref)
-			htmlContent := renderFootnoteContent(node, source, md)
+			rawContent := extractFootnoteRawContent(node, source)
 
 			// Find the definition extent in source
 			start, end := findFootnoteDefExtent(refLabel, source)
 			if start >= 0 && end >= 0 {
 				defs[node.Index] = footnoteDef{
-					start:   start,
-					end:     end,
-					ref:     refLabel,
-					content: htmlContent,
+					start:      start,
+					end:        end,
+					ref:        refLabel,
+					rawContent: rawContent,
 				}
 			}
 		}
@@ -120,7 +134,34 @@ func transform(content string) string {
 		}
 	}
 
-	// Build the list of definition ranges to exclude
+	// Track which link references are used in footnotes vs body
+	footnoteRefs := make(map[string]bool)
+	for _, def := range defs {
+		for label := range findRefLinksInText(def.rawContent) {
+			footnoteRefs[label] = true
+		}
+	}
+
+	// Determine which references are used in body (non-footnote) text
+	bodyRefs := findBodyRefLinks(source, defs)
+
+	// References to keep: used in body text
+	// References to remove: only used in footnotes
+	refsToRemove := make(map[string]bool)
+	for label := range footnoteRefs {
+		if !bodyRefs[label] {
+			refsToRemove[label] = true
+		}
+	}
+
+	// Render footnote content with reference links resolved
+	for idx, def := range defs {
+		htmlContent := renderFootnoteContentWithRefs(def.rawContent, linkDefs, md)
+		def.content = htmlContent
+		defs[idx] = def
+	}
+
+	// Build the list of definition ranges to exclude (footnote defs)
 	var defRanges []markdown.ByteRange
 	for _, def := range defs {
 		defRanges = append(defRanges, markdown.ByteRange{Start: def.start, End: def.end})
@@ -129,13 +170,30 @@ func transform(content string) string {
 		return defRanges[i].Start < defRanges[j].Start
 	})
 
+	// Build the list of link definition ranges to exclude
+	var linkDefRanges []markdown.ByteRange
+	for _, ld := range linkDefs {
+		if refsToRemove[ld.label] {
+			linkDefRanges = append(linkDefRanges, markdown.ByteRange{Start: ld.start, End: ld.end})
+		}
+	}
+	sort.Slice(linkDefRanges, func(i, j int) bool {
+		return linkDefRanges[i].Start < linkDefRanges[j].Start
+	})
+
+	// Combine all ranges to exclude
+	allExcludeRanges := append(defRanges, linkDefRanges...)
+	sort.Slice(allExcludeRanges, func(i, j int) bool {
+		return allExcludeRanges[i].Start < allExcludeRanges[j].Start
+	})
+
 	// Build output
 	var result strings.Builder
 	lastEnd := 0
 
 	for _, ref := range refs {
 		// Write content before this ref, excluding definition ranges
-		before := markdown.ExcludeRanges(string(source[lastEnd:ref.start]), lastEnd, defRanges)
+		before := markdown.ExcludeRanges(string(source[lastEnd:ref.start]), lastEnd, allExcludeRanges)
 		result.WriteString(before)
 
 		// Get the sidenote number and content
@@ -158,8 +216,12 @@ func transform(content string) string {
 	}
 
 	// Write remaining content, excluding definitions
-	remaining := markdown.ExcludeRanges(string(source[lastEnd:]), lastEnd, defRanges)
-	remaining = strings.TrimRight(remaining, "\n") + "\n\n"
+	remaining := markdown.ExcludeRanges(string(source[lastEnd:]), lastEnd, allExcludeRanges)
+
+	// Renumber remaining link references
+	remaining = renumberLinkRefs(remaining, linkDefs, refsToRemove)
+
+	remaining = strings.TrimRight(remaining, "\n") + "\n"
 	result.WriteString(remaining)
 
 	return result.String()
@@ -289,4 +351,194 @@ func findFootnoteDefExtent(label string, source []byte) (int, int) {
 	}
 
 	return start, end
+}
+
+// collectLinkDefs finds all reference-style link definitions in the source
+func collectLinkDefs(source []byte) []linkDef {
+	var defs []linkDef
+	// Match [label]: url patterns
+	re := regexp.MustCompile(`(?m)^\[([^\]]+)\]:\s*(\S+).*$`)
+	matches := re.FindAllSubmatchIndex(source, -1)
+
+	for _, match := range matches {
+		// Skip footnote definitions [^label]:
+		label := string(source[match[2]:match[3]])
+		if strings.HasPrefix(label, "^") {
+			continue
+		}
+
+		defs = append(defs, linkDef{
+			label: label,
+			url:   string(source[match[4]:match[5]]),
+			start: match[0],
+			end:   match[1] + 1, // include newline
+		})
+	}
+
+	return defs
+}
+
+// extractFootnoteRawContent extracts the raw markdown content from a footnote
+func extractFootnoteRawContent(node *extast.Footnote, source []byte) string {
+	var buf bytes.Buffer
+
+	for child := node.FirstChild(); child != nil; child = child.NextSibling() {
+		if para, ok := child.(*ast.Paragraph); ok {
+			if para.Lines().Len() > 0 {
+				for i := 0; i < para.Lines().Len(); i++ {
+					line := para.Lines().At(i)
+					buf.Write(line.Value(source))
+				}
+			}
+		}
+	}
+
+	return strings.TrimSpace(buf.String())
+}
+
+// findRefLinksInText finds all reference-style link labels used in text
+func findRefLinksInText(text string) map[string]bool {
+	refs := make(map[string]bool)
+	// Match [text][label] or [label][] or [label] patterns
+	re := regexp.MustCompile(`\[([^\]]+)\]\[([^\]]*)\]|\[([^\]]+)\](?:\[([^\]]*)\])?`)
+	matches := re.FindAllStringSubmatch(text, -1)
+
+	for _, match := range matches {
+		if match[2] != "" {
+			// [text][label] form
+			refs[match[2]] = true
+		} else if match[4] != "" {
+			// [text][label] form (alternate capture)
+			refs[match[4]] = true
+		} else if match[1] != "" {
+			// Could be [label][] or just [label] used as reference
+			refs[match[1]] = true
+		} else if match[3] != "" {
+			refs[match[3]] = true
+		}
+	}
+
+	return refs
+}
+
+// findBodyRefLinks finds reference links used in the body (non-footnote) text
+func findBodyRefLinks(source []byte, footnoteDefs map[int]footnoteDef) map[string]bool {
+	bodyRefs := make(map[string]bool)
+
+	// Build ranges to exclude (footnote definitions and link definitions)
+	var excludeRanges []markdown.ByteRange
+	for _, def := range footnoteDefs {
+		excludeRanges = append(excludeRanges, markdown.ByteRange{Start: def.start, End: def.end})
+	}
+
+	// Also exclude link definition lines
+	linkDefRe := regexp.MustCompile(`(?m)^\[[^\]]+\]:\s*\S+.*$`)
+	linkDefMatches := linkDefRe.FindAllIndex(source, -1)
+	for _, match := range linkDefMatches {
+		excludeRanges = append(excludeRanges, markdown.ByteRange{Start: match[0], End: match[1]})
+	}
+
+	sort.Slice(excludeRanges, func(i, j int) bool {
+		return excludeRanges[i].Start < excludeRanges[j].Start
+	})
+
+	// Get body text by excluding footnote definitions
+	bodyText := markdown.ExcludeRanges(string(source), 0, excludeRanges)
+
+	// Find all reference links in body
+	for label := range findRefLinksInText(bodyText) {
+		bodyRefs[label] = true
+	}
+
+	return bodyRefs
+}
+
+// renderFootnoteContentWithRefs renders footnote content with reference links resolved
+func renderFootnoteContentWithRefs(rawContent string, linkDefs []linkDef, md goldmark.Markdown) string {
+	// Build a map of label -> url
+	linkMap := make(map[string]string)
+	for _, ld := range linkDefs {
+		linkMap[ld.label] = ld.url
+	}
+
+	// Replace reference links with inline links
+	// Handle [text][label] form
+	re1 := regexp.MustCompile(`\[([^\]]+)\]\[([^\]]+)\]`)
+	content := re1.ReplaceAllStringFunc(rawContent, func(match string) string {
+		parts := re1.FindStringSubmatch(match)
+		if len(parts) == 3 {
+			text := parts[1]
+			label := parts[2]
+			if url, ok := linkMap[label]; ok {
+				return "[" + text + "](" + url + ")"
+			}
+		}
+		return match
+	})
+
+	// Handle [label][] form (empty second bracket)
+	re2 := regexp.MustCompile(`\[([^\]]+)\]\[\]`)
+	content = re2.ReplaceAllStringFunc(content, func(match string) string {
+		parts := re2.FindStringSubmatch(match)
+		if len(parts) == 2 {
+			label := parts[1]
+			if url, ok := linkMap[label]; ok {
+				return "[" + label + "](" + url + ")"
+			}
+		}
+		return match
+	})
+
+	// Now render through goldmark
+	var buf bytes.Buffer
+	md.Convert([]byte(content), &buf)
+
+	// Strip the <p> tags
+	result := strings.TrimSpace(buf.String())
+	result = strings.TrimPrefix(result, "<p>")
+	result = strings.TrimSuffix(result, "</p>")
+
+	return result
+}
+
+// renumberLinkRefs renumbers link references after removing some
+func renumberLinkRefs(text string, linkDefs []linkDef, removed map[string]bool) string {
+	// Build old -> new label mapping for numeric labels
+	var keptLabels []string
+	for _, ld := range linkDefs {
+		if !removed[ld.label] {
+			keptLabels = append(keptLabels, ld.label)
+		}
+	}
+
+	// Create renumbering map (only for numeric labels)
+	renumber := make(map[string]string)
+	newNum := 1
+	for _, label := range keptLabels {
+		if _, err := strconv.Atoi(label); err == nil {
+			renumber[label] = strconv.Itoa(newNum)
+			newNum++
+		}
+	}
+
+	// Replace in text - both usages [text][N] and definitions [N]:
+	result := text
+
+	// Replace reference usages [text][N]
+	for old, new := range renumber {
+		if old != new {
+			re := regexp.MustCompile(`\](\[` + regexp.QuoteMeta(old) + `\])`)
+			result = re.ReplaceAllString(result, "]["+new+"]")
+		}
+	}
+
+	// Replace definitions [N]:
+	for old, new := range renumber {
+		if old != new {
+			re := regexp.MustCompile(`(?m)^\[` + regexp.QuoteMeta(old) + `\]:`)
+			result = re.ReplaceAllString(result, "["+new+"]:")
+		}
+	}
+
+	return result
 }
