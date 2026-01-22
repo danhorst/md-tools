@@ -6,3 +6,5 @@ CLAUDE.md
 # Go build artifacts
 bin/*
 !bin/agent-setup
+!bin/md-install
+/mdref

@@ -7,13 +7,18 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
-	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/dbh/md-tools/internal/cli"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 )
 
 func main() {
@@ -40,113 +45,106 @@ func run(args []string) error {
 	return err
 }
 
-// linkMatch represents a link found in the document with its position
-type linkMatch struct {
-	start    int    // start position in content
-	end      int    // end position in content
-	text     string // link text
-	url      string // resolved URL
-	title    string // optional title
-	isInline bool   // true for inline links, false for reference-style
+// linkInfo represents a link found in the document with its position
+type linkInfo struct {
+	start int    // start position in content (byte offset)
+	end   int    // end position in content (byte offset)
+	text  string // link text
+	url   string // destination URL
+	title string // optional title
+}
+
+// reference holds URL and title for a reference definition
+type reference struct {
+	url   string
+	title string
 }
 
 // transform converts inline links to reference-style links.
 func transform(content string) string {
-	// First, extract and remove any existing reference definitions
-	existingRefs, contentWithoutRefs := extractExistingRefs(content)
+	source := []byte(content)
 
-	// Regex to match inline links: [text](url) or [text](url "title")
-	inlineLinkPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+	// Parse the document with a context to capture reference definitions
+	md := goldmark.New()
+	ctx := parser.NewContext()
+	reader := text.NewReader(source)
+	doc := md.Parser().Parse(reader, parser.WithContext(ctx))
 
-	// Regex to match existing reference-style links: [text][ref]
-	refLinkPattern := regexp.MustCompile(`\[([^\]]+)\]\[([^\]]+)\]`)
-
-	// Collect all links with their positions for unified processing
-	var allLinks []linkMatch
-
-	// Find inline links
-	for _, match := range inlineLinkPattern.FindAllStringSubmatchIndex(contentWithoutRefs, -1) {
-		fullStart := match[0]
-		fullEnd := match[1]
-		textStart := match[2]
-		textEnd := match[3]
-		urlPartStart := match[4]
-		urlPartEnd := match[5]
-
-		// Skip image links (preceded by !)
-		if fullStart > 0 && contentWithoutRefs[fullStart-1] == '!' {
-			continue
+	// Build a map of reference labels to their definitions
+	refDefs := make(map[string]reference)
+	for _, ref := range ctx.References() {
+		label := strings.ToLower(string(ref.Label()))
+		refDefs[label] = reference{
+			url:   string(ref.Destination()),
+			title: string(ref.Title()),
 		}
-
-		linkText := contentWithoutRefs[textStart:textEnd]
-		urlPart := contentWithoutRefs[urlPartStart:urlPartEnd]
-		url, title := parseURLAndTitle(urlPart)
-
-		allLinks = append(allLinks, linkMatch{
-			start:    fullStart,
-			end:      fullEnd,
-			text:     linkText,
-			url:      url,
-			title:    title,
-			isInline: true,
-		})
 	}
 
-	// Find reference-style links
-	for _, match := range refLinkPattern.FindAllStringSubmatchIndex(contentWithoutRefs, -1) {
-		fullStart := match[0]
-		fullEnd := match[1]
-		textStart := match[2]
-		textEnd := match[3]
-		refStart := match[4]
-		refEnd := match[5]
+	// Find byte ranges of reference definitions in the source to exclude them
+	refDefRanges := findRefDefRanges(source)
 
-		// Skip image links (preceded by !)
-		if fullStart > 0 && contentWithoutRefs[fullStart-1] == '!' {
-			continue
+	// Collect all links from the AST
+	var links []linkInfo
+
+	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
 		}
 
-		refID := contentWithoutRefs[refStart:refEnd]
-
-		// Skip footnotes (start with ^)
-		if strings.HasPrefix(refID, "^") {
-			continue
+		link, ok := n.(*ast.Link)
+		if !ok {
+			return ast.WalkContinue, nil
 		}
 
-		// Look up the reference definition
-		oldRef, exists := existingRefs[refID]
-		if !exists {
-			// Reference not found, skip (leave as-is by not adding to allLinks)
-			continue
+		// Get link text from children
+		var textBuf bytes.Buffer
+		for child := link.FirstChild(); child != nil; child = child.NextSibling() {
+			if textNode, ok := child.(*ast.Text); ok {
+				textBuf.Write(textNode.Segment.Value(source))
+			}
+		}
+		linkText := textBuf.String()
+
+		// Find the extent of this link in the source
+		start, end := findLinkExtent(link, source)
+		if start < 0 || end < 0 {
+			return ast.WalkContinue, nil
 		}
 
-		linkText := contentWithoutRefs[textStart:textEnd]
+		// Skip links that are inside reference definitions
+		for _, r := range refDefRanges {
+			if start >= r.start && end <= r.end {
+				return ast.WalkContinue, nil
+			}
+		}
 
-		allLinks = append(allLinks, linkMatch{
-			start:    fullStart,
-			end:      fullEnd,
-			text:     linkText,
-			url:      oldRef.url,
-			title:    oldRef.title,
-			isInline: false,
+		links = append(links, linkInfo{
+			start: start,
+			end:   end,
+			text:  linkText,
+			url:   string(link.Destination),
+			title: string(link.Title),
 		})
-	}
+
+		return ast.WalkContinue, nil
+	})
 
 	// Sort links by position in document
-	sortLinksByPosition(allLinks)
+	sort.Slice(links, func(i, j int) bool {
+		return links[i].start < links[j].start
+	})
 
-	// Process links in document order, assigning reference numbers
+	// Build output excluding reference definitions
 	urlToRef := make(map[string]int)
 	var refs []reference
-
 	var result strings.Builder
 	lastEnd := 0
 
-	for _, link := range allLinks {
-		// Write content before this match
-		result.WriteString(contentWithoutRefs[lastEnd:link.start])
+	for _, link := range links {
+		// Write content before this link, but skip reference definition ranges
+		result.WriteString(excludeRanges(string(source[lastEnd:link.start]), lastEnd, refDefRanges))
 
-		// Create a key that includes both URL and title for deduplication
+		// Create deduplication key
 		refKey := link.url
 		if link.title != "" {
 			refKey = link.url + "\x00" + link.title
@@ -166,25 +164,15 @@ func transform(content string) string {
 		lastEnd = link.end
 	}
 
-	// Write remaining content
-	result.WriteString(contentWithoutRefs[lastEnd:])
+	// Write remaining content, excluding reference definitions
+	remaining := string(source[lastEnd:])
+	remaining = excludeRanges(remaining, lastEnd, refDefRanges)
+	remaining = strings.TrimRight(remaining, "\n") + "\n"
+	result.WriteString(remaining)
 
-	// Append reference definitions if any
+	// Append new reference definitions
 	if len(refs) > 0 {
-		// Ensure there's a blank line before references
-		text := result.String()
-		if !strings.HasSuffix(text, "\n\n") {
-			if strings.HasSuffix(text, "\n") {
-				result.Reset()
-				result.WriteString(text)
-				result.WriteString("\n")
-			} else {
-				result.Reset()
-				result.WriteString(text)
-				result.WriteString("\n\n")
-			}
-		}
-
+		result.WriteString("\n")
 		for i, ref := range refs {
 			if ref.title != "" {
 				fmt.Fprintf(&result, "[%d]: %s %q\n", i+1, ref.url, ref.title)
@@ -197,88 +185,140 @@ func transform(content string) string {
 	return result.String()
 }
 
-// sortLinksByPosition sorts links by their start position in the document
-func sortLinksByPosition(links []linkMatch) {
-	for i := 1; i < len(links); i++ {
-		for j := i; j > 0 && links[j].start < links[j-1].start; j-- {
-			links[j], links[j-1] = links[j-1], links[j]
-		}
-	}
+// byteRange represents a range of bytes in the source
+type byteRange struct {
+	start int
+	end   int
 }
 
-// extractExistingRefs parses and removes existing reference definitions from content.
-// Returns a map of reference ID to reference, and the content with definitions removed.
-func extractExistingRefs(content string) (map[string]reference, string) {
-	refs := make(map[string]reference)
+// findRefDefRanges finds the byte ranges of reference definitions in source.
+// Reference definitions are lines like: [label]: url "title"
+func findRefDefRanges(source []byte) []byteRange {
+	var ranges []byteRange
+	lines := bytes.Split(source, []byte("\n"))
+	offset := 0
 
-	// Pattern to match reference definitions: [id]: url or [id]: url "title"
-	// Must be at start of line
-	refDefPattern := regexp.MustCompile(`(?m)^\[([^\]]+)\]:\s+(\S+)(?:\s+"([^"]*)")?[ \t]*\n?`)
+	for _, line := range lines {
+		lineLen := len(line)
+		trimmed := bytes.TrimSpace(line)
 
-	// Find all reference definitions
-	matches := refDefPattern.FindAllStringSubmatch(content, -1)
-	for _, match := range matches {
-		id := match[1]
-		url := match[2]
-		title := ""
-		if len(match) > 3 {
-			title = match[3]
+		// Check if line starts with [ and contains ]:
+		if len(trimmed) > 0 && trimmed[0] == '[' {
+			closeBracket := bytes.Index(trimmed, []byte("]:"))
+			if closeBracket > 1 {
+				label := trimmed[1:closeBracket]
+				// Skip footnote definitions (start with ^)
+				if len(label) > 0 && label[0] != '^' {
+					// This is a reference definition - mark the whole line
+					ranges = append(ranges, byteRange{
+						start: offset,
+						end:   offset + lineLen + 1, // +1 for newline
+					})
+				}
+			}
 		}
-		// Skip footnote definitions (start with ^)
-		if strings.HasPrefix(id, "^") {
+
+		offset += lineLen + 1 // +1 for newline
+	}
+
+	return ranges
+}
+
+// excludeRanges returns content with any overlapping reference definition ranges removed
+func excludeRanges(content string, contentStart int, ranges []byteRange) string {
+	contentEnd := contentStart + len(content)
+	var result strings.Builder
+
+	pos := 0
+	for _, r := range ranges {
+		// Convert range to be relative to content
+		relStart := r.start - contentStart
+		relEnd := r.end - contentStart
+
+		// Skip ranges that don't overlap with content
+		if r.end <= contentStart || r.start >= contentEnd {
 			continue
 		}
-		refs[id] = reference{url: url, title: title}
+
+		// Clamp to content bounds
+		if relStart < 0 {
+			relStart = 0
+		}
+		if relEnd > len(content) {
+			relEnd = len(content)
+		}
+
+		// Write content before this range
+		if relStart > pos {
+			result.WriteString(content[pos:relStart])
+		}
+		pos = relEnd
 	}
 
-	// Remove reference definitions from content (but not footnote definitions)
-	cleaned := refDefPattern.ReplaceAllStringFunc(content, func(match string) string {
-		// Check if this is a footnote definition
-		if strings.HasPrefix(match, "[^") {
-			return match
-		}
-		return ""
-	})
+	// Write remaining content
+	if pos < len(content) {
+		result.WriteString(content[pos:])
+	}
 
-	// Clean up any extra blank lines that may have been left
-	// But preserve the structure - just remove trailing blank lines before we add refs
-	cleaned = strings.TrimRight(cleaned, "\n") + "\n"
-
-	return refs, cleaned
+	return result.String()
 }
 
-type reference struct {
-	url   string
-	title string
-}
-
-// parseURLAndTitle extracts the URL and optional title from a link's URL portion.
-// Handles formats like:
-//   - url
-//   - url "title"
-//   - url 'title'
-func parseURLAndTitle(s string) (url, title string) {
-	s = strings.TrimSpace(s)
-
-	// Check for title in double quotes
-	if idx := strings.Index(s, " \""); idx != -1 {
-		url = strings.TrimSpace(s[:idx])
-		titlePart := s[idx+2:]
-		if strings.HasSuffix(titlePart, "\"") {
-			title = titlePart[:len(titlePart)-1]
-		}
-		return
+// findLinkExtent finds the start and end byte positions of a link node in the source
+func findLinkExtent(node *ast.Link, source []byte) (int, int) {
+	if node.ChildCount() == 0 {
+		return -1, -1
 	}
 
-	// Check for title in single quotes
-	if idx := strings.Index(s, " '"); idx != -1 {
-		url = strings.TrimSpace(s[:idx])
-		titlePart := s[idx+2:]
-		if strings.HasSuffix(titlePart, "'") {
-			title = titlePart[:len(titlePart)-1]
-		}
-		return
+	// Get the first text child's segment to find where the link text starts
+	firstChild := node.FirstChild()
+	if firstChild == nil {
+		return -1, -1
 	}
 
-	return s, ""
+	textNode, ok := firstChild.(*ast.Text)
+	if !ok {
+		return -1, -1
+	}
+
+	// The '[' should be just before the text segment
+	start := textNode.Segment.Start - 1
+	if start < 0 || source[start] != '[' {
+		return -1, -1
+	}
+
+	// Find the last text child to get the end of link text
+	lastChild := node.LastChild()
+	lastText, ok := lastChild.(*ast.Text)
+	if !ok {
+		return -1, -1
+	}
+	textEnd := lastText.Segment.Stop
+
+	// Scan forward to find the end of the link: ) for inline, ] for reference
+	end := textEnd
+	depth := 0
+	for end < len(source) {
+		ch := source[end]
+		if ch == '(' {
+			depth++
+		} else if ch == ')' {
+			if depth > 0 {
+				depth--
+			}
+			if depth == 0 {
+				end++
+				break
+			}
+		} else if ch == ']' && end > textEnd {
+			// End of reference-style link
+			end++
+			break
+		} else if ch == '\n' {
+			// Don't go past end of line
+			break
+		}
+		end++
+	}
+
+	return start, end
 }
