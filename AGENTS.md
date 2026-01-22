@@ -130,6 +130,7 @@ Agents should prefer correctness and clarity over premature optimization.
 - Implementation language: Go
 - Deliverable: single static binary per tool
 - Shared code must live in internal packages
+- Run `gofmt -w` on all Go files after editing
 
 External dependencies should be minimized but are not forbidden.
 

@@ -40,26 +40,32 @@ func run(args []string) error {
 	return err
 }
 
+// linkMatch represents a link found in the document with its position
+type linkMatch struct {
+	start    int    // start position in content
+	end      int    // end position in content
+	text     string // link text
+	url      string // resolved URL
+	title    string // optional title
+	isInline bool   // true for inline links, false for reference-style
+}
+
 // transform converts inline links to reference-style links.
 func transform(content string) string {
-	// Track seen URLs to their reference numbers
-	urlToRef := make(map[string]int)
-	// Track references in order for output
-	var refs []reference
+	// First, extract and remove any existing reference definitions
+	existingRefs, contentWithoutRefs := extractExistingRefs(content)
 
 	// Regex to match inline links: [text](url) or [text](url "title")
-	// Negative lookbehind for ! to avoid matching image links
-	// This pattern handles:
-	// - Basic links: [text](url)
-	// - Links with titles: [text](url "title") or [text](url 'title')
-	linkPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+	inlineLinkPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 
-	var result strings.Builder
-	lastEnd := 0
+	// Regex to match existing reference-style links: [text][ref]
+	refLinkPattern := regexp.MustCompile(`\[([^\]]+)\]\[([^\]]+)\]`)
 
-	matches := linkPattern.FindAllStringSubmatchIndex(content, -1)
+	// Collect all links with their positions for unified processing
+	var allLinks []linkMatch
 
-	for _, match := range matches {
+	// Find inline links
+	for _, match := range inlineLinkPattern.FindAllStringSubmatchIndex(contentWithoutRefs, -1) {
 		fullStart := match[0]
 		fullEnd := match[1]
 		textStart := match[2]
@@ -67,24 +73,83 @@ func transform(content string) string {
 		urlPartStart := match[4]
 		urlPartEnd := match[5]
 
-		// Check if this is an image link (preceded by !)
-		if fullStart > 0 && content[fullStart-1] == '!' {
+		// Skip image links (preceded by !)
+		if fullStart > 0 && contentWithoutRefs[fullStart-1] == '!' {
 			continue
 		}
 
-		// Write content before this match
-		result.WriteString(content[lastEnd:fullStart])
-
-		linkText := content[textStart:textEnd]
-		urlPart := content[urlPartStart:urlPartEnd]
-
-		// Parse URL and optional title from urlPart
+		linkText := contentWithoutRefs[textStart:textEnd]
+		urlPart := contentWithoutRefs[urlPartStart:urlPartEnd]
 		url, title := parseURLAndTitle(urlPart)
 
+		allLinks = append(allLinks, linkMatch{
+			start:    fullStart,
+			end:      fullEnd,
+			text:     linkText,
+			url:      url,
+			title:    title,
+			isInline: true,
+		})
+	}
+
+	// Find reference-style links
+	for _, match := range refLinkPattern.FindAllStringSubmatchIndex(contentWithoutRefs, -1) {
+		fullStart := match[0]
+		fullEnd := match[1]
+		textStart := match[2]
+		textEnd := match[3]
+		refStart := match[4]
+		refEnd := match[5]
+
+		// Skip image links (preceded by !)
+		if fullStart > 0 && contentWithoutRefs[fullStart-1] == '!' {
+			continue
+		}
+
+		refID := contentWithoutRefs[refStart:refEnd]
+
+		// Skip footnotes (start with ^)
+		if strings.HasPrefix(refID, "^") {
+			continue
+		}
+
+		// Look up the reference definition
+		oldRef, exists := existingRefs[refID]
+		if !exists {
+			// Reference not found, skip (leave as-is by not adding to allLinks)
+			continue
+		}
+
+		linkText := contentWithoutRefs[textStart:textEnd]
+
+		allLinks = append(allLinks, linkMatch{
+			start:    fullStart,
+			end:      fullEnd,
+			text:     linkText,
+			url:      oldRef.url,
+			title:    oldRef.title,
+			isInline: false,
+		})
+	}
+
+	// Sort links by position in document
+	sortLinksByPosition(allLinks)
+
+	// Process links in document order, assigning reference numbers
+	urlToRef := make(map[string]int)
+	var refs []reference
+
+	var result strings.Builder
+	lastEnd := 0
+
+	for _, link := range allLinks {
+		// Write content before this match
+		result.WriteString(contentWithoutRefs[lastEnd:link.start])
+
 		// Create a key that includes both URL and title for deduplication
-		refKey := url
-		if title != "" {
-			refKey = url + "\x00" + title
+		refKey := link.url
+		if link.title != "" {
+			refKey = link.url + "\x00" + link.title
 		}
 
 		// Get or assign reference number
@@ -92,17 +157,17 @@ func transform(content string) string {
 		if !exists {
 			refNum = len(refs) + 1
 			urlToRef[refKey] = refNum
-			refs = append(refs, reference{url: url, title: title})
+			refs = append(refs, reference{url: link.url, title: link.title})
 		}
 
 		// Write the reference-style link
-		result.WriteString(fmt.Sprintf("[%s][%d]", linkText, refNum))
+		result.WriteString(fmt.Sprintf("[%s][%d]", link.text, refNum))
 
-		lastEnd = fullEnd
+		lastEnd = link.end
 	}
 
 	// Write remaining content
-	result.WriteString(content[lastEnd:])
+	result.WriteString(contentWithoutRefs[lastEnd:])
 
 	// Append reference definitions if any
 	if len(refs) > 0 {
@@ -130,6 +195,56 @@ func transform(content string) string {
 	}
 
 	return result.String()
+}
+
+// sortLinksByPosition sorts links by their start position in the document
+func sortLinksByPosition(links []linkMatch) {
+	for i := 1; i < len(links); i++ {
+		for j := i; j > 0 && links[j].start < links[j-1].start; j-- {
+			links[j], links[j-1] = links[j-1], links[j]
+		}
+	}
+}
+
+// extractExistingRefs parses and removes existing reference definitions from content.
+// Returns a map of reference ID to reference, and the content with definitions removed.
+func extractExistingRefs(content string) (map[string]reference, string) {
+	refs := make(map[string]reference)
+
+	// Pattern to match reference definitions: [id]: url or [id]: url "title"
+	// Must be at start of line
+	refDefPattern := regexp.MustCompile(`(?m)^\[([^\]]+)\]:\s+(\S+)(?:\s+"([^"]*)")?[ \t]*\n?`)
+
+	// Find all reference definitions
+	matches := refDefPattern.FindAllStringSubmatch(content, -1)
+	for _, match := range matches {
+		id := match[1]
+		url := match[2]
+		title := ""
+		if len(match) > 3 {
+			title = match[3]
+		}
+		// Skip footnote definitions (start with ^)
+		if strings.HasPrefix(id, "^") {
+			continue
+		}
+		refs[id] = reference{url: url, title: title}
+	}
+
+	// Remove reference definitions from content (but not footnote definitions)
+	cleaned := refDefPattern.ReplaceAllStringFunc(content, func(match string) string {
+		// Check if this is a footnote definition
+		if strings.HasPrefix(match, "[^") {
+			return match
+		}
+		return ""
+	})
+
+	// Clean up any extra blank lines that may have been left
+	// But preserve the structure - just remove trailing blank lines before we add refs
+	cleaned = strings.TrimRight(cleaned, "\n") + "\n"
+
+	return refs, cleaned
 }
 
 type reference struct {
