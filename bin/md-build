@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+cd "$(dirname "$0")/.."
+
+for cmd in cmd/*/main.go; do
+    name=$(dirname "$cmd" | xargs basename)
+    go build -o "bin/$name" "./$cmd/.."
+done

@@ -3,4 +3,8 @@ set -e
 
 cd "$(dirname "$0")/.."
 
+# Build locally first
+./bin/md-build
+
+# Install to GOPATH
 go install ./cmd/...

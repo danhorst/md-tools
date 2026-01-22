@@ -214,70 +214,34 @@ func transform(content string) string {
 	return result.String()
 }
 
-// renderFootnoteContent renders the content of a footnote to HTML
+// renderFootnoteContent renders the content of a footnote to HTML using goldmark
 func renderFootnoteContent(node *extast.Footnote, source []byte, md goldmark.Markdown) string {
-	// Collect the text content from the footnote's children
-	var content bytes.Buffer
+	var buf bytes.Buffer
 
+	// Render each child paragraph's content
 	for child := node.FirstChild(); child != nil; child = child.NextSibling() {
-		// Render each child node to HTML
 		if para, ok := child.(*ast.Paragraph); ok {
-			// For paragraphs, render the inline content
-			renderInlineHTML(&content, para, source, md)
-		}
-	}
-
-	return strings.TrimSpace(content.String())
-}
-
-// renderInlineHTML renders inline nodes to HTML
-func renderInlineHTML(w *bytes.Buffer, node ast.Node, source []byte, md goldmark.Markdown) {
-	for child := node.FirstChild(); child != nil; child = child.NextSibling() {
-		switch n := child.(type) {
-		case *ast.Text:
-			text := n.Segment.Value(source)
-			w.Write(text)
-			if n.HardLineBreak() {
-				w.WriteString("<br/>")
-			}
-		case *ast.Emphasis:
-			if n.Level == 1 {
-				w.WriteString("<em>")
-				renderInlineHTML(w, n, source, md)
-				w.WriteString("</em>")
-			} else {
-				w.WriteString("<strong>")
-				renderInlineHTML(w, n, source, md)
-				w.WriteString("</strong>")
-			}
-		case *ast.CodeSpan:
-			w.WriteString("<code>")
-			for c := n.FirstChild(); c != nil; c = c.NextSibling() {
-				if t, ok := c.(*ast.Text); ok {
-					w.Write(t.Segment.Value(source))
+			// Get the source range covered by this paragraph
+			if para.Lines().Len() > 0 {
+				// Extract the markdown source for this paragraph
+				var paraSource bytes.Buffer
+				for i := 0; i < para.Lines().Len(); i++ {
+					line := para.Lines().At(i)
+					paraSource.Write(line.Value(source))
 				}
-			}
-			w.WriteString("</code>")
-		case *ast.Link:
-			w.WriteString("<a href=\"")
-			w.Write(n.Destination)
-			w.WriteString("\">")
-			renderInlineHTML(w, n, source, md)
-			w.WriteString("</a>")
-		case *ast.AutoLink:
-			url := n.URL(source)
-			w.WriteString("<a href=\"")
-			w.Write(url)
-			w.WriteString("\">")
-			w.Write(url)
-			w.WriteString("</a>")
-		default:
-			// For other nodes, try to get text content
-			if child.ChildCount() > 0 {
-				renderInlineHTML(w, child, source, md)
+
+				// Parse and render just this content
+				md.Convert(paraSource.Bytes(), &buf)
 			}
 		}
 	}
+
+	// Strip the <p> tags that goldmark wraps around the content
+	result := strings.TrimSpace(buf.String())
+	result = strings.TrimPrefix(result, "<p>")
+	result = strings.TrimSuffix(result, "</p>")
+
+	return result
 }
 
 // findFootnoteRefExtent finds the byte range of a footnote reference [^label]
