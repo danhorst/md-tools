@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/dbh/md-tools/internal/markdown"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
@@ -170,12 +171,12 @@ func transform(content string) string {
 	}
 
 	// Build the list of definition ranges to exclude
-	var defRanges []byteRange
+	var defRanges []markdown.ByteRange
 	for _, def := range defs {
-		defRanges = append(defRanges, byteRange{start: def.start, end: def.end})
+		defRanges = append(defRanges, markdown.ByteRange{Start: def.start, End: def.end})
 	}
 	sort.Slice(defRanges, func(i, j int) bool {
-		return defRanges[i].start < defRanges[j].start
+		return defRanges[i].Start < defRanges[j].Start
 	})
 
 	// Build output
@@ -184,7 +185,7 @@ func transform(content string) string {
 
 	for _, ref := range refs {
 		// Write content before this ref, excluding definition ranges
-		before := excludeRanges(string(source[lastEnd:ref.start]), lastEnd, defRanges)
+		before := markdown.ExcludeRanges(string(source[lastEnd:ref.start]), lastEnd, defRanges)
 		result.WriteString(before)
 
 		// Get the sidenote number and content
@@ -207,7 +208,7 @@ func transform(content string) string {
 	}
 
 	// Write remaining content, excluding definitions
-	remaining := excludeRanges(string(source[lastEnd:]), lastEnd, defRanges)
+	remaining := markdown.ExcludeRanges(string(source[lastEnd:]), lastEnd, defRanges)
 	remaining = strings.TrimRight(remaining, "\n") + "\n\n"
 	result.WriteString(remaining)
 
@@ -338,42 +339,4 @@ func findFootnoteDefExtent(label string, source []byte) (int, int) {
 	}
 
 	return start, end
-}
-
-type byteRange struct {
-	start int
-	end   int
-}
-
-func excludeRanges(content string, contentStart int, ranges []byteRange) string {
-	contentEnd := contentStart + len(content)
-	var result strings.Builder
-
-	pos := 0
-	for _, r := range ranges {
-		relStart := r.start - contentStart
-		relEnd := r.end - contentStart
-
-		if r.end <= contentStart || r.start >= contentEnd {
-			continue
-		}
-
-		if relStart < 0 {
-			relStart = 0
-		}
-		if relEnd > len(content) {
-			relEnd = len(content)
-		}
-
-		if relStart > pos {
-			result.WriteString(content[pos:relStart])
-		}
-		pos = relEnd
-	}
-
-	if pos < len(content) {
-		result.WriteString(content[pos:])
-	}
-
-	return result.String()
 }

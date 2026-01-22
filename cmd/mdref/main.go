@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/dbh/md-tools/internal/markdown"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
@@ -122,6 +123,12 @@ func transform(content string) string {
 	// Find byte ranges of reference definitions in the source to exclude them
 	refDefRanges := findRefDefRanges(source)
 
+	// Convert to markdown.ByteRange for the shared utility
+	excludeRanges := make([]markdown.ByteRange, len(refDefRanges))
+	for i, r := range refDefRanges {
+		excludeRanges[i] = markdown.ByteRange{Start: r.start, End: r.end}
+	}
+
 	// Collect all links from the AST
 	var links []linkInfo
 
@@ -181,7 +188,7 @@ func transform(content string) string {
 
 	for _, link := range links {
 		// Write content before this link, but skip reference definition ranges
-		result.WriteString(excludeRanges(string(source[lastEnd:link.start]), lastEnd, refDefRanges))
+		result.WriteString(markdown.ExcludeRanges(string(source[lastEnd:link.start]), lastEnd, excludeRanges))
 
 		// Create deduplication key
 		refKey := link.url
@@ -205,7 +212,7 @@ func transform(content string) string {
 
 	// Write remaining content, excluding reference definitions
 	remaining := string(source[lastEnd:])
-	remaining = excludeRanges(remaining, lastEnd, refDefRanges)
+	remaining = markdown.ExcludeRanges(remaining, lastEnd, excludeRanges)
 	remaining = strings.TrimRight(remaining, "\n") + "\n"
 	result.WriteString(remaining)
 
@@ -224,16 +231,17 @@ func transform(content string) string {
 	return result.String()
 }
 
-// byteRange represents a range of bytes in the source
-type byteRange struct {
+// refDefRange represents a range of bytes for a reference definition in the source.
+// This is internal to mdref; the shared markdown.ByteRange is used for exclusion.
+type refDefRange struct {
 	start int
 	end   int
 }
 
 // findRefDefRanges finds the byte ranges of reference definitions in source.
 // Reference definitions are lines like: [label]: url "title"
-func findRefDefRanges(source []byte) []byteRange {
-	var ranges []byteRange
+func findRefDefRanges(source []byte) []refDefRange {
+	var ranges []refDefRange
 	lines := bytes.Split(source, []byte("\n"))
 	offset := 0
 
@@ -249,7 +257,7 @@ func findRefDefRanges(source []byte) []byteRange {
 				// Skip footnote definitions (start with ^)
 				if len(label) > 0 && label[0] != '^' {
 					// This is a reference definition - mark the whole line
-					ranges = append(ranges, byteRange{
+					ranges = append(ranges, refDefRange{
 						start: offset,
 						end:   offset + lineLen + 1, // +1 for newline
 					})
@@ -261,45 +269,6 @@ func findRefDefRanges(source []byte) []byteRange {
 	}
 
 	return ranges
-}
-
-// excludeRanges returns content with any overlapping reference definition ranges removed
-func excludeRanges(content string, contentStart int, ranges []byteRange) string {
-	contentEnd := contentStart + len(content)
-	var result strings.Builder
-
-	pos := 0
-	for _, r := range ranges {
-		// Convert range to be relative to content
-		relStart := r.start - contentStart
-		relEnd := r.end - contentStart
-
-		// Skip ranges that don't overlap with content
-		if r.end <= contentStart || r.start >= contentEnd {
-			continue
-		}
-
-		// Clamp to content bounds
-		if relStart < 0 {
-			relStart = 0
-		}
-		if relEnd > len(content) {
-			relEnd = len(content)
-		}
-
-		// Write content before this range
-		if relStart > pos {
-			result.WriteString(content[pos:relStart])
-		}
-		pos = relEnd
-	}
-
-	// Write remaining content
-	if pos < len(content) {
-		result.WriteString(content[pos:])
-	}
-
-	return result.String()
 }
 
 // findLinkExtent finds the start and end byte positions of a link node in the source
