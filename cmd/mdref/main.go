@@ -4,34 +4,57 @@
 //
 //	mdref [file...]
 //	cat file.md | mdref
+//	mdref -w file.md    # modify file in place
 package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"sort"
 	"strings"
 
-	"github.com/dbh/md-tools/internal/cli"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/text"
 )
 
+var writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	flag.Parse()
+	if err := run(flag.Args()); err != nil {
 		fmt.Fprintf(os.Stderr, "mdref: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func run(args []string) error {
-	input, err := cli.Input(args)
-	if err != nil {
-		return err
+	if *writeInPlace {
+		if len(args) == 0 {
+			return fmt.Errorf("-w requires at least one file argument")
+		}
+		for _, path := range args {
+			if err := processFile(path); err != nil {
+				return fmt.Errorf("%s: %w", path, err)
+			}
+		}
+		return nil
+	}
+
+	// Default: read from files or stdin, write to stdout
+	var input io.ReadCloser
+	if len(args) == 0 {
+		input = os.Stdin
+	} else {
+		f, err := os.Open(args[0])
+		if err != nil {
+			return err
+		}
+		input = f
 	}
 	defer input.Close()
 
@@ -43,6 +66,22 @@ func run(args []string) error {
 	result := transform(string(data))
 	_, err = os.Stdout.WriteString(result)
 	return err
+}
+
+func processFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	result := transform(string(data))
+
+	// Only write if content changed
+	if result == string(data) {
+		return nil
+	}
+
+	return os.WriteFile(path, []byte(result), 0644)
 }
 
 // linkInfo represents a link found in the document with its position
