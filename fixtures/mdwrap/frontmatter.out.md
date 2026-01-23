@@ -9,8 +9,9 @@ good for the reader. When _reading_ text, the paragraphs should be wrapped to 80
 characters[^1] with a ragged left alignment [^2].
 
 The rest of this text has been reused from the simplest case for processing
-inline [links][1] to reference-style links in a document with [YAML frontmatter][2].
-It is easy to confuse a single YAML property with a "underline" style H2.
+inline [links][1] to reference-style links in a document with [YAML
+frontmatter][2]. It is easy to confuse a single YAML property with a "underline"
+style H2.
 
 Each inline link should be converted to a reference-style link at the end of the
 document with an incrementing integer, starting at one, as you traverse the

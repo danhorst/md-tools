@@ -255,52 +255,24 @@ func wrapParagraph(lines []string) []string {
 	// Join all lines into one, then wrap
 	text := strings.Join(lines, " ")
 
-	// Tokenize into markdown-aware chunks
-	tokens := tokenize(text)
-	if len(tokens) == 0 {
+	words := strings.Fields(text)
+	if len(words) == 0 {
 		return nil
 	}
 
 	var result []string
 	var currentLine strings.Builder
 
-	for i, token := range tokens {
+	for _, word := range words {
 		if currentLine.Len() == 0 {
-			currentLine.WriteString(token)
+			currentLine.WriteString(word)
+		} else if currentLine.Len()+1+len(word) <= wrapWidth {
+			currentLine.WriteString(" ")
+			currentLine.WriteString(word)
 		} else {
-			newLen := currentLine.Len() + 1 + len(token)
-			if newLen <= wrapWidth {
-				// Fits within width
-				currentLine.WriteString(" ")
-				currentLine.WriteString(token)
-			} else if containsLink(token) {
-				// Token contains a link - allow overflow to keep it together
-				currentLine.WriteString(" ")
-				currentLine.WriteString(token)
-			} else {
-				// Check if breaking here would leave the next token orphaned
-				// or if there's a better break point
-				shouldBreak := true
-
-				// Look ahead: if next token is a link that would fit better
-				// on a new line with this token, break before this token
-				if i+1 < len(tokens) && containsLink(tokens[i+1]) {
-					nextLen := len(token) + 1 + len(tokens[i+1])
-					if nextLen <= wrapWidth {
-						// Breaking now lets token+nextToken fit on new line
-						shouldBreak = true
-					}
-				}
-
-				if shouldBreak {
-					result = append(result, currentLine.String())
-					currentLine.Reset()
-					currentLine.WriteString(token)
-				} else {
-					currentLine.WriteString(" ")
-					currentLine.WriteString(token)
-				}
-			}
+			result = append(result, currentLine.String())
+			currentLine.Reset()
+			currentLine.WriteString(word)
 		}
 	}
 
@@ -309,145 +281,4 @@ func wrapParagraph(lines []string) []string {
 	}
 
 	return result
-}
-
-// containsLink checks if a token contains a markdown link construct
-func containsLink(token string) bool {
-	// Check for [...](...) or [...][...]
-	if !strings.Contains(token, "[") {
-		return false
-	}
-	// Simple heuristic: contains [] followed by () or []
-	re := regexp.MustCompile(`\[[^\]]+\](\([^\)]+\)|\[[^\]]*\])`)
-	return re.MatchString(token)
-}
-
-// tokenize splits text into wrappable tokens, keeping markdown constructs together.
-// Links like [text](url) or [text][ref] are kept as single tokens.
-// Tokens include any trailing punctuation or links that are attached (no space).
-func tokenize(text string) []string {
-	var tokens []string
-	var current strings.Builder
-
-	i := 0
-	for i < len(text) {
-		ch := text[i]
-
-		// Skip whitespace, flush current token
-		if ch == ' ' || ch == '\t' {
-			if current.Len() > 0 {
-				tokens = append(tokens, current.String())
-				current.Reset()
-			}
-			i++
-			continue
-		}
-
-		// Check for markdown link starting with [
-		if ch == '[' {
-			// Try to parse a complete link construct
-			linkEnd := parseLinkConstruct(text, i)
-			if linkEnd > i {
-				// Append link to current token (keeps word[^1] together)
-				current.WriteString(text[i:linkEnd])
-				i = linkEnd
-				// Continue to pick up any trailing punctuation
-				continue
-			}
-		}
-
-		// Regular character
-		current.WriteByte(ch)
-		i++
-	}
-
-	if current.Len() > 0 {
-		tokens = append(tokens, current.String())
-	}
-
-	return tokens
-}
-
-// parseLinkConstruct tries to parse a markdown link starting at pos.
-// Returns the end position if successful, or pos if not a valid link.
-// Handles: [text](url), [text][ref], [text][], [ref] (when followed by valid context)
-func parseLinkConstruct(text string, pos int) int {
-	if pos >= len(text) || text[pos] != '[' {
-		return pos
-	}
-
-	// Find closing ]
-	bracketEnd := findClosingBracket(text, pos)
-	if bracketEnd < 0 {
-		return pos
-	}
-
-	end := bracketEnd + 1
-
-	// Check what follows the ]
-	if end < len(text) {
-		if text[end] == '(' {
-			// Inline link [text](url)
-			parenEnd := findClosingParen(text, end)
-			if parenEnd > 0 {
-				return parenEnd + 1
-			}
-		} else if text[end] == '[' {
-			// Reference link [text][ref] or [text][]
-			refEnd := findClosingBracket(text, end)
-			if refEnd > 0 {
-				return refEnd + 1
-			}
-		}
-	}
-
-	// Could be a shortcut reference [ref] - return just the bracket portion
-	// Only if it looks like a standalone reference (not followed by more link syntax)
-	return end
-}
-
-// findClosingBracket finds the ] that closes the [ at pos
-func findClosingBracket(text string, pos int) int {
-	if pos >= len(text) || text[pos] != '[' {
-		return -1
-	}
-
-	depth := 0
-	for i := pos; i < len(text); i++ {
-		if text[i] == '[' {
-			depth++
-		} else if text[i] == ']' {
-			depth--
-			if depth == 0 {
-				return i
-			}
-		} else if text[i] == '\n' {
-			// Don't span newlines
-			return -1
-		}
-	}
-	return -1
-}
-
-// findClosingParen finds the ) that closes the ( at pos
-func findClosingParen(text string, pos int) int {
-	if pos >= len(text) || text[pos] != '(' {
-		return -1
-	}
-
-	depth := 0
-	for i := pos; i < len(text); i++ {
-		if text[i] == '(' {
-			depth++
-		} else if text[i] == ')' {
-			depth--
-			if depth == 0 {
-				return i
-			}
-		} else if text[i] == '\n' {
-			// Don't span newlines
-			return -1
-		}
-	}
-	return -1
 }
