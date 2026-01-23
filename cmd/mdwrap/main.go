@@ -139,10 +139,16 @@ func transform(content string) string {
 			continue
 		}
 
-		// Check for blockquote (preserve as-is for now, will handle in future fixture)
+		// Check for blockquote
 		if strings.HasPrefix(strings.TrimSpace(line), ">") {
-			result = append(result, line)
-			i++
+			// Collect all consecutive blockquote lines
+			var bqLines []string
+			for i < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[i]), ">") {
+				bqLines = append(bqLines, lines[i])
+				i++
+			}
+			wrapped := wrapBlockquote(bqLines)
+			result = append(result, wrapped...)
 			continue
 		}
 
@@ -175,6 +181,13 @@ func transform(content string) string {
 				strings.HasPrefix(strings.TrimSpace(l), ">") ||
 				isHorizontalRule(l) {
 				break
+			}
+
+			// Check for explicit line break (two trailing spaces)
+			if strings.HasSuffix(l, "  ") {
+				paraLines = append(paraLines, l)
+				i++
+				break // End paragraph here, preserving the hard break
 			}
 
 			paraLines = append(paraLines, l)
@@ -254,6 +267,9 @@ func isHorizontalRule(line string) bool {
 }
 
 func wrapParagraph(lines []string) []string {
+	// Check if last line has explicit line break (two trailing spaces)
+	hasHardBreak := len(lines) > 0 && strings.HasSuffix(lines[len(lines)-1], "  ")
+
 	// Join all lines into one, then wrap
 	text := strings.Join(lines, " ")
 
@@ -269,6 +285,89 @@ func wrapParagraph(lines []string) []string {
 		if currentLine.Len() == 0 {
 			currentLine.WriteString(word)
 		} else if currentLine.Len()+1+len(word) <= *wrapWidth {
+			currentLine.WriteString(" ")
+			currentLine.WriteString(word)
+		} else {
+			result = append(result, currentLine.String())
+			currentLine.Reset()
+			currentLine.WriteString(word)
+		}
+	}
+
+	if currentLine.Len() > 0 {
+		lastLine := currentLine.String()
+		if hasHardBreak {
+			lastLine += "  "
+		}
+		result = append(result, lastLine)
+	}
+
+	return result
+}
+
+// wrapBlockquote wraps blockquote lines, accounting for the "> " prefix in width.
+func wrapBlockquote(lines []string) []string {
+	if len(lines) == 0 {
+		return nil
+	}
+
+	const prefix = "> "
+	contentWidth := *wrapWidth - len(prefix)
+
+	// Strip prefix and collect content, grouping by GFM alert headers
+	var result []string
+	var contentLines []string
+
+	for _, line := range lines {
+		// Strip the > and optional space
+		content := strings.TrimPrefix(line, ">")
+		content = strings.TrimPrefix(content, " ")
+
+		// Check for GFM alert header like [!NOTE]
+		if strings.HasPrefix(content, "[!") && strings.Contains(content, "]") {
+			// Flush any pending content first
+			if len(contentLines) > 0 {
+				wrapped := wrapToWidth(contentLines, contentWidth)
+				for _, w := range wrapped {
+					result = append(result, prefix+w)
+				}
+				contentLines = nil
+			}
+			// Add alert header as-is
+			result = append(result, prefix+content)
+			continue
+		}
+
+		contentLines = append(contentLines, content)
+	}
+
+	// Flush remaining content
+	if len(contentLines) > 0 {
+		wrapped := wrapToWidth(contentLines, contentWidth)
+		for _, w := range wrapped {
+			result = append(result, prefix+w)
+		}
+	}
+
+	return result
+}
+
+// wrapToWidth wraps lines to the specified width.
+func wrapToWidth(lines []string, width int) []string {
+	text := strings.Join(lines, " ")
+
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return nil
+	}
+
+	var result []string
+	var currentLine strings.Builder
+
+	for _, word := range words {
+		if currentLine.Len() == 0 {
+			currentLine.WriteString(word)
+		} else if currentLine.Len()+1+len(word) <= width {
 			currentLine.WriteString(" ")
 			currentLine.WriteString(word)
 		} else {
