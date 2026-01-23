@@ -204,9 +204,11 @@ func transform(content string) string {
 			// Write the sidenote HTML
 			result.WriteString(fmt.Sprintf("\n<label for=\"sidenote-%d\" class=\"margin-toggle sidenote-number\"></label>\n", num))
 			result.WriteString(fmt.Sprintf("<input type=\"checkbox\" id=\"sidenote-%d\" class=\"margin-toggle\"/>\n", num))
-			result.WriteString("<span class=\"sidenote\">\n")
+			result.WriteString("<span class=\"sidenote\">")
+			result.WriteString("<span class=\"hidden\">(</span>")
 			result.WriteString(def.content)
-			result.WriteString("\n</span>")
+			result.WriteString("<span class=\"hidden\">)</span>")
+			result.WriteString("</span>")
 		} else {
 			// No definition found, leave the reference as-is
 			result.WriteString(string(source[ref.start:ref.end]))
