@@ -1,10 +1,11 @@
-// mdwrap wraps Markdown paragraphs to 80 characters.
+// mdwrap wraps Markdown paragraphs to a specified width (default 60).
 //
 // Usage:
 //
 //	mdwrap [file...]
 //	cat file.md | mdwrap
-//	mdwrap -w file.md    # modify file in place
+//	mdwrap -c 80 file.md  # wrap to 80 columns
+//	mdwrap -w file.md     # modify file in place
 package main
 
 import (
@@ -17,9 +18,10 @@ import (
 	"github.com/dbh/md-tools/internal/cli"
 )
 
-var writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
-
-const wrapWidth = 80
+var (
+	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+	wrapWidth    = flag.Int("c", 60, "column width to wrap to")
+)
 
 func main() {
 	flag.Parse()
@@ -266,7 +268,7 @@ func wrapParagraph(lines []string) []string {
 	for _, word := range words {
 		if currentLine.Len() == 0 {
 			currentLine.WriteString(word)
-		} else if currentLine.Len()+1+len(word) <= wrapWidth {
+		} else if currentLine.Len()+1+len(word) <= *wrapWidth {
 			currentLine.WriteString(" ")
 			currentLine.WriteString(word)
 		} else {
