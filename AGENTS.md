@@ -159,3 +159,24 @@ When implementing a new tool:
 5. Keep the binary small and focused
 
 Agents should treat this document as binding.
+
+
+## Available Commands
+
+The following commands are available via `make`:
+
+### `make test`
+
+Run all fixture tests. Use this to verify changes match expected output.
+
+- Automatically discovers all `fixtures/<tool>/<name>.in.md` / `.out.md` pairs
+- Tests both correctness and idempotency
+- Exit code 0 means all tests pass
+
+### `make fmt`
+
+Format all Go source files with `gofmt -w .`. Run this after editing any Go code.
+
+### `make build`
+
+Build all tool binaries to `bin/`.

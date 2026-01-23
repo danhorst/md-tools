@@ -1,4 +1,4 @@
-.PHONY: all build test clean
+.PHONY: all build test fmt clean
 
 # Find all tool directories under cmd/
 TOOLS := $(wildcard cmd/*)
@@ -15,7 +15,10 @@ build:
 	done
 
 test:
-	go test ./...
+	go test .
+
+fmt:
+	gofmt -w .
 
 clean:
 	rm -f bin/*
