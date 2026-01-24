@@ -11,20 +11,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
 	"strings"
 	"unicode"
 
 	"github.com/dbh/md-tools/internal/cli"
+	"github.com/dbh/md-tools/internal/markdown"
 )
 
-var (
-	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
-
-	footnoteDefRe = regexp.MustCompile(`^\[\^[^\]]+\]:`)
-	linkRefDefRe  = regexp.MustCompile(`^\[[^\]]+\]:\s*\S`)
-	orderedListRe = regexp.MustCompile(`^\d+\.\s`)
-)
+var writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
 
 func main() {
 	flag.Parse()
@@ -44,12 +38,12 @@ func transform(content string) string {
 	if i < len(lines) {
 		hasFrontmatter := false
 		if strings.TrimSpace(lines[i]) == "---" {
-			if i+1 < len(lines) && looksLikeFrontmatterProperty(lines[i+1]) {
+			if i+1 < len(lines) && markdown.LooksLikeFrontmatterProperty(lines[i+1]) {
 				hasFrontmatter = true
 				result = append(result, lines[i])
 				i++
 			}
-		} else if looksLikeFrontmatterProperty(lines[i]) {
+		} else if markdown.LooksLikeFrontmatterProperty(lines[i]) {
 			for j := i + 1; j < len(lines); j++ {
 				if strings.TrimSpace(lines[j]) == "---" {
 					hasFrontmatter = true
@@ -101,14 +95,14 @@ func transform(content string) string {
 		}
 
 		// Check for footnote definition
-		if isFootnoteDefinition(line) {
+		if markdown.IsFootnoteDefinition(line) {
 			result = append(result, line)
 			i++
 			continue
 		}
 
 		// Check for link reference definition
-		if isLinkRefDefinition(line) {
+		if markdown.IsLinkRefDefinition(line) {
 			result = append(result, line)
 			i++
 			continue
@@ -129,7 +123,7 @@ func transform(content string) string {
 		}
 
 		// Check for list item
-		if isListItem(line) {
+		if markdown.IsListItem(line) {
 			result = append(result, line)
 			i++
 			continue
@@ -148,7 +142,7 @@ func transform(content string) string {
 		}
 
 		// Check for horizontal rule
-		if isHorizontalRule(line) {
+		if markdown.IsHorizontalRule(line) {
 			result = append(result, line)
 			i++
 			continue
@@ -167,12 +161,12 @@ func transform(content string) string {
 				strings.HasPrefix(strings.TrimSpace(l), "~~~") ||
 				strings.HasPrefix(l, "    ") ||
 				strings.HasPrefix(l, "\t") ||
-				isFootnoteDefinition(l) ||
-				isLinkRefDefinition(l) ||
+				markdown.IsFootnoteDefinition(l) ||
+				markdown.IsLinkRefDefinition(l) ||
 				strings.HasPrefix(l, "#") ||
-				isListItem(l) ||
+				markdown.IsListItem(l) ||
 				strings.HasPrefix(strings.TrimSpace(l), ">") ||
-				isHorizontalRule(l) {
+				markdown.IsHorizontalRule(l) {
 				break
 			}
 
@@ -197,56 +191,6 @@ func transform(content string) string {
 	output = strings.TrimRight(output, "\n") + "\n"
 
 	return output
-}
-
-func looksLikeFrontmatterProperty(line string) bool {
-	trimmed := strings.TrimSpace(line)
-	if trimmed == "" || trimmed == "---" {
-		return false
-	}
-	idx := strings.Index(trimmed, ":")
-	return idx > 0
-}
-
-func isFootnoteDefinition(line string) bool {
-	return footnoteDefRe.MatchString(line)
-}
-
-func isLinkRefDefinition(line string) bool {
-	if isFootnoteDefinition(line) {
-		return false
-	}
-	return linkRefDefRe.MatchString(line)
-}
-
-func isListItem(line string) bool {
-	trimmed := strings.TrimSpace(line)
-	if len(trimmed) > 1 && (trimmed[0] == '-' || trimmed[0] == '*' || trimmed[0] == '+') && trimmed[1] == ' ' {
-		return true
-	}
-	return orderedListRe.MatchString(trimmed)
-}
-
-func isHorizontalRule(line string) bool {
-	trimmed := strings.TrimSpace(line)
-	if len(trimmed) < 3 {
-		return false
-	}
-	dashes := strings.ReplaceAll(trimmed, " ", "")
-	if len(dashes) >= 3 {
-		allSame := true
-		ch := dashes[0]
-		if ch == '-' || ch == '*' || ch == '_' {
-			for _, c := range dashes {
-				if byte(c) != ch {
-					allSame = false
-					break
-				}
-			}
-			return allSame
-		}
-	}
-	return false
 }
 
 // splitParagraph joins lines and splits into sentences.
