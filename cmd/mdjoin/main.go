@@ -1,10 +1,10 @@
-// mdunwrap unwraps Markdown paragraphs to single long lines.
+// mdjoin joins Markdown sentences into single-line paragraphs.
 //
 // Usage:
 //
-//	mdunwrap [file...]
-//	cat file.md | mdunwrap
-//	mdunwrap -w file.md    # modify file in place
+//	mdjoin [file...]
+//	cat file.md | mdjoin
+//	mdjoin -w file.md    # modify file in place
 package main
 
 import (
@@ -21,8 +21,8 @@ var writeInPlace = flag.Bool("w", false, "write result to file instead of stdout
 
 func main() {
 	flag.Parse()
-	if err := cli.Run(flag.Args(), *writeInPlace, "mdunwrap", transform); err != nil {
-		fmt.Fprintf(os.Stderr, "mdunwrap: %v\n", err)
+	if err := cli.Run(flag.Args(), *writeInPlace, "mdjoin", transform); err != nil {
+		fmt.Fprintf(os.Stderr, "mdjoin: %v\n", err)
 		os.Exit(1)
 	}
 }

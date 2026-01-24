@@ -1,10 +1,10 @@
-// mdunwrap unwraps Markdown paragraphs to single long lines.
+// mdsplit splits Markdown paragraphs into one sentence per line.
 //
 // Usage:
 //
-//	mdunwrap [file...]
-//	cat file.md | mdunwrap
-//	mdunwrap -w file.md    # modify file in place
+//	mdsplit [file...]
+//	cat file.md | mdsplit
+//	mdsplit -w file.md    # modify file in place
 package main
 
 import (
@@ -13,6 +13,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/dbh/md-tools/internal/cli"
 )
@@ -21,8 +22,8 @@ var writeInPlace = flag.Bool("w", false, "write result to file instead of stdout
 
 func main() {
 	flag.Parse()
-	if err := cli.Run(flag.Args(), *writeInPlace, "mdunwrap", transform); err != nil {
-		fmt.Fprintf(os.Stderr, "mdunwrap: %v\n", err)
+	if err := cli.Run(flag.Args(), *writeInPlace, "mdsplit", transform); err != nil {
+		fmt.Fprintf(os.Stderr, "mdsplit: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -34,34 +35,27 @@ func transform(content string) string {
 	i := 0
 
 	// Handle YAML frontmatter
-	// Two formats:
-	// 1. Starts with --- and ends with ---
-	// 2. Starts with a property line and ends with ---
 	if i < len(lines) {
 		hasFrontmatter := false
 		if strings.TrimSpace(lines[i]) == "---" {
-			// Check if next line looks like a property
 			if i+1 < len(lines) && looksLikeFrontmatterProperty(lines[i+1]) {
 				hasFrontmatter = true
 				result = append(result, lines[i])
 				i++
 			}
 		} else if looksLikeFrontmatterProperty(lines[i]) {
-			// Check if there's a closing --- somewhere
 			for j := i + 1; j < len(lines); j++ {
 				if strings.TrimSpace(lines[j]) == "---" {
 					hasFrontmatter = true
 					break
 				}
 				if strings.TrimSpace(lines[j]) == "" {
-					// Blank line before --- means no frontmatter
 					break
 				}
 			}
 		}
 
 		if hasFrontmatter {
-			// Copy until closing ---
 			for i < len(lines) && strings.TrimSpace(lines[i]) != "---" {
 				result = append(result, lines[i])
 				i++
@@ -93,7 +87,7 @@ func transform(content string) string {
 			continue
 		}
 
-		// Check for indented code block (4 spaces or tab)
+		// Check for indented code block
 		if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
 			result = append(result, line)
 			i++
@@ -128,7 +122,7 @@ func transform(content string) string {
 			continue
 		}
 
-		// Check for list item (preserve as-is for now)
+		// Check for list item
 		if isListItem(line) {
 			result = append(result, line)
 			i++
@@ -137,14 +131,13 @@ func transform(content string) string {
 
 		// Check for blockquote
 		if strings.HasPrefix(strings.TrimSpace(line), ">") {
-			// Collect all consecutive blockquote lines
 			var bqLines []string
 			for i < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[i]), ">") {
 				bqLines = append(bqLines, lines[i])
 				i++
 			}
-			unwrapped := unwrapBlockquote(bqLines)
-			result = append(result, unwrapped...)
+			split := splitBlockquote(bqLines)
+			result = append(result, split...)
 			continue
 		}
 
@@ -160,12 +153,10 @@ func transform(content string) string {
 		for i < len(lines) {
 			l := lines[i]
 
-			// Stop at blank line
 			if strings.TrimSpace(l) == "" {
 				break
 			}
 
-			// Stop at special constructs
 			if strings.HasPrefix(strings.TrimSpace(l), "```") ||
 				strings.HasPrefix(strings.TrimSpace(l), "~~~") ||
 				strings.HasPrefix(l, "    ") ||
@@ -183,7 +174,7 @@ func transform(content string) string {
 			if strings.HasSuffix(l, "  ") {
 				paraLines = append(paraLines, l)
 				i++
-				break // End paragraph here, preserving the hard break
+				break
 			}
 
 			paraLines = append(paraLines, l)
@@ -191,12 +182,11 @@ func transform(content string) string {
 		}
 
 		if len(paraLines) > 0 {
-			unwrapped := unwrapParagraph(paraLines)
-			result = append(result, unwrapped...)
+			split := splitParagraph(paraLines)
+			result = append(result, split...)
 		}
 	}
 
-	// Ensure single trailing newline
 	output := strings.Join(result, "\n")
 	output = strings.TrimRight(output, "\n") + "\n"
 
@@ -204,7 +194,6 @@ func transform(content string) string {
 }
 
 func looksLikeFrontmatterProperty(line string) bool {
-	// Simple heuristic: contains a colon not at the start
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" || trimmed == "---" {
 		return false
@@ -219,8 +208,6 @@ func isFootnoteDefinition(line string) bool {
 }
 
 func isLinkRefDefinition(line string) bool {
-	// [label]: URL
-	// Must not be a footnote definition
 	if isFootnoteDefinition(line) {
 		return false
 	}
@@ -230,11 +217,9 @@ func isLinkRefDefinition(line string) bool {
 
 func isListItem(line string) bool {
 	trimmed := strings.TrimSpace(line)
-	// Unordered: -, *, +
 	if len(trimmed) > 1 && (trimmed[0] == '-' || trimmed[0] == '*' || trimmed[0] == '+') && trimmed[1] == ' ' {
 		return true
 	}
-	// Ordered: 1. 2. etc
 	matched, _ := regexp.MatchString(`^\d+\.\s`, trimmed)
 	return matched
 }
@@ -244,7 +229,6 @@ func isHorizontalRule(line string) bool {
 	if len(trimmed) < 3 {
 		return false
 	}
-	// ---, ***, ___ with optional spaces between
 	dashes := strings.ReplaceAll(trimmed, " ", "")
 	if len(dashes) >= 3 {
 		allSame := true
@@ -262,49 +246,74 @@ func isHorizontalRule(line string) bool {
 	return false
 }
 
-// unwrapParagraph joins lines into a single line.
-func unwrapParagraph(lines []string) []string {
-	// Check if last line has explicit line break (two trailing spaces)
+// splitParagraph joins lines and splits into sentences.
+func splitParagraph(lines []string) []string {
 	hasHardBreak := len(lines) > 0 && strings.HasSuffix(lines[len(lines)-1], "  ")
 
-	// Join all lines into one
 	text := strings.Join(lines, " ")
-	// Normalize multiple spaces
 	text = strings.Join(strings.Fields(text), " ")
 
-	if hasHardBreak {
-		text += "  "
+	sentences := splitSentences(text)
+
+	if hasHardBreak && len(sentences) > 0 {
+		sentences[len(sentences)-1] += "  "
 	}
 
-	return []string{text}
+	return sentences
 }
 
-// unwrapBlockquote unwraps blockquote lines into single lines per paragraph.
-func unwrapBlockquote(lines []string) []string {
+// splitSentences splits text into sentences.
+func splitSentences(text string) []string {
+	if text == "" {
+		return nil
+	}
+
+	var sentences []string
+	var current strings.Builder
+	runes := []rune(text)
+
+	for i := 0; i < len(runes); i++ {
+		current.WriteRune(runes[i])
+
+		if runes[i] == '.' || runes[i] == '!' || runes[i] == '?' {
+			if i+2 < len(runes) && runes[i+1] == ' ' && unicode.IsUpper(runes[i+2]) {
+				sentences = append(sentences, current.String())
+				current.Reset()
+				i++
+			}
+		}
+	}
+
+	if current.Len() > 0 {
+		sentences = append(sentences, current.String())
+	}
+
+	return sentences
+}
+
+// splitBlockquote splits blockquote lines into one sentence per line.
+func splitBlockquote(lines []string) []string {
 	if len(lines) == 0 {
 		return nil
 	}
 
 	const prefix = "> "
 
-	// Strip prefix and collect content, grouping by GFM alert headers
 	var result []string
 	var contentLines []string
 
 	for _, line := range lines {
-		// Strip the > and optional space
 		content := strings.TrimPrefix(line, ">")
 		content = strings.TrimPrefix(content, " ")
 
-		// Check for GFM alert header like [!NOTE]
 		if strings.HasPrefix(content, "[!") && strings.Contains(content, "]") {
-			// Flush any pending content first
 			if len(contentLines) > 0 {
-				joined := joinLines(contentLines)
-				result = append(result, prefix+joined)
+				sentences := splitToSentences(contentLines)
+				for _, s := range sentences {
+					result = append(result, prefix+s)
+				}
 				contentLines = nil
 			}
-			// Add alert header as-is
 			result = append(result, prefix+content)
 			continue
 		}
@@ -312,17 +321,19 @@ func unwrapBlockquote(lines []string) []string {
 		contentLines = append(contentLines, content)
 	}
 
-	// Flush remaining content
 	if len(contentLines) > 0 {
-		joined := joinLines(contentLines)
-		result = append(result, prefix+joined)
+		sentences := splitToSentences(contentLines)
+		for _, s := range sentences {
+			result = append(result, prefix+s)
+		}
 	}
 
 	return result
 }
 
-// joinLines joins lines into a single line.
-func joinLines(lines []string) string {
+// splitToSentences joins lines and splits into sentences.
+func splitToSentences(lines []string) []string {
 	text := strings.Join(lines, " ")
-	return strings.Join(strings.Fields(text), " ")
+	text = strings.Join(strings.Fields(text), " ")
+	return splitSentences(text)
 }
