@@ -47,6 +47,9 @@ Sort of.
 I've been looking at the source, telling the agent to do things, controlling git commits, and maintaining tight control over the `fixtures` that define success.
 The results aren't _stellar_ but they solve problems I've had for a long time and never got around to coding a solution myself.
 
+Although I used [Claude Code][9], the instructions are all in `AGENTS.md`.
+There is a utility script (`bin/agent-setup`) that takes care of symlinking `AGENTS.md` to `CLAUDE.md`.
+
 [^1]: Assuming you don't just tell an LLM to do all your formatting for you—what a waste of tokens!
 
 [1]: https://en.wikipedia.org/wiki/Unix_philosophy
