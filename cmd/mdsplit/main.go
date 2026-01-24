@@ -18,7 +18,13 @@ import (
 	"github.com/dbh/md-tools/internal/cli"
 )
 
-var writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+var (
+	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+
+	footnoteDefRe = regexp.MustCompile(`^\[\^[^\]]+\]:`)
+	linkRefDefRe  = regexp.MustCompile(`^\[[^\]]+\]:\s*\S`)
+	orderedListRe = regexp.MustCompile(`^\d+\.\s`)
+)
 
 func main() {
 	flag.Parse()
@@ -203,16 +209,14 @@ func looksLikeFrontmatterProperty(line string) bool {
 }
 
 func isFootnoteDefinition(line string) bool {
-	matched, _ := regexp.MatchString(`^\[\^[^\]]+\]:`, line)
-	return matched
+	return footnoteDefRe.MatchString(line)
 }
 
 func isLinkRefDefinition(line string) bool {
 	if isFootnoteDefinition(line) {
 		return false
 	}
-	matched, _ := regexp.MatchString(`^\[[^\]]+\]:\s*\S`, line)
-	return matched
+	return linkRefDefRe.MatchString(line)
 }
 
 func isListItem(line string) bool {
@@ -220,8 +224,7 @@ func isListItem(line string) bool {
 	if len(trimmed) > 1 && (trimmed[0] == '-' || trimmed[0] == '*' || trimmed[0] == '+') && trimmed[1] == ' ' {
 		return true
 	}
-	matched, _ := regexp.MatchString(`^\d+\.\s`, trimmed)
-	return matched
+	return orderedListRe.MatchString(trimmed)
 }
 
 func isHorizontalRule(line string) bool {

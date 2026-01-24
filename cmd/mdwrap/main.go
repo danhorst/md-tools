@@ -21,6 +21,10 @@ import (
 var (
 	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
 	wrapWidth    = flag.Int("c", 60, "column width to wrap to")
+
+	footnoteDefRe = regexp.MustCompile(`^\[\^[^\]]+\]:`)
+	linkRefDefRe  = regexp.MustCompile(`^\[[^\]]+\]:\s*\S`)
+	orderedListRe = regexp.MustCompile(`^\d+\.\s`)
 )
 
 func main() {
@@ -218,8 +222,7 @@ func looksLikeFrontmatterProperty(line string) bool {
 }
 
 func isFootnoteDefinition(line string) bool {
-	matched, _ := regexp.MatchString(`^\[\^[^\]]+\]:`, line)
-	return matched
+	return footnoteDefRe.MatchString(line)
 }
 
 func isLinkRefDefinition(line string) bool {
@@ -228,8 +231,7 @@ func isLinkRefDefinition(line string) bool {
 	if isFootnoteDefinition(line) {
 		return false
 	}
-	matched, _ := regexp.MatchString(`^\[[^\]]+\]:\s*\S`, line)
-	return matched
+	return linkRefDefRe.MatchString(line)
 }
 
 func isListItem(line string) bool {
@@ -239,8 +241,7 @@ func isListItem(line string) bool {
 		return true
 	}
 	// Ordered: 1. 2. etc
-	matched, _ := regexp.MatchString(`^\d+\.\s`, trimmed)
-	return matched
+	return orderedListRe.MatchString(trimmed)
 }
 
 func isHorizontalRule(line string) bool {
