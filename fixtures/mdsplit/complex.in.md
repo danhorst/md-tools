@@ -14,7 +14,7 @@ But it is wrapped on purpose.
 Each line has two trailing spaces.  
 
 - This is a list.
-- Some of the list times have a lot of text. Like this one
+- Some of the list times have a lot of text. Like this one.
   - Some of them are even indented. Like this one.
 - But it should still line up properly.
 - The most compatible way to do this is to keep all the content for a list item on the same line. Even if that line is long enough it would normally be split up.
