@@ -161,6 +161,11 @@ When implementing a new tool:
 Agents should treat this document as binding.
 
 
+## Git Commits
+
+All commits made by agents must be prefixed with "AGENT:" in the commit message.
+
+
 ## Available Commands
 
 The following commands are available via `make`:
