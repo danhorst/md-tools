@@ -23,6 +23,7 @@ The commands are set up in pairs, each responsible for applying or reverting a s
 
 ### Annotations
 
+- `mdfnt` renumbers footnote references (`[^label]`) to sequential integers in order of first appearance, updating the corresponding definitions.
 - `mdsidenote` converts markdown footnotes into HTML literals for [sidenotes][5] that can be styled with [Tufte CSS][6] (or a derivative).
 - `mdfootnote` attempts to convert HTML markup for sidenotes back into markdown footnotes.
 
@@ -30,6 +31,10 @@ The commands are set up in pairs, each responsible for applying or reverting a s
 
 - `mdsplit` takes paragraphs where all the sentences aren't separated by new lines (like [iA Writer][7] expects) and splits each sentence onto it's own line.
 - `mdjoin` takes text written in [one sentance per line][8] (the way I like to do it in `vim`) and gloms them together into contiguous paragraphs.
+
+### Tables
+
+- `mdtable` normalizes GFM table column widths so all cells in each column are padded to equal width, making tables visually aligned in plain text.
 
 ## Hard wrapping
 
