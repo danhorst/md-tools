@@ -90,17 +90,8 @@ func transform(content string) string {
 			return ast.WalkContinue, nil
 		}
 
-		// Get link text from children
-		var textBuf bytes.Buffer
-		for child := link.FirstChild(); child != nil; child = child.NextSibling() {
-			if textNode, ok := child.(*ast.Text); ok {
-				textBuf.Write(textNode.Segment.Value(source))
-			}
-		}
-		linkText := textBuf.String()
-
-		// Find the extent of this link in the source
-		start, end := findLinkExtent(link, source)
+		// Find the extent of this link in the source (also extracts link text)
+		start, end, linkText := findLinkExtent(link, source)
 		if start < 0 || end < 0 {
 			return ast.WalkContinue, nil
 		}
@@ -219,62 +210,110 @@ func findRefDefRanges(source []byte) []refDefRange {
 	return ranges
 }
 
-// findLinkExtent finds the start and end byte positions of a link node in the source
-func findLinkExtent(node *ast.Link, source []byte) (int, int) {
+// nodeContentStart returns the byte offset of the first content character inside
+// an inline node. It handles *ast.Text directly and recurses into *ast.CodeSpan.
+func nodeContentStart(n ast.Node) int {
+	switch child := n.(type) {
+	case *ast.Text:
+		return child.Segment.Start
+	case *ast.CodeSpan:
+		if first := child.FirstChild(); first != nil {
+			return nodeContentStart(first)
+		}
+	}
+	return -1
+}
+
+// findLinkExtent finds the start and end byte positions of a link node in the
+// source and returns the raw link text (the bytes between [ and ]).
+// This handles both plain-text and code-span link text (e.g. [`Foo`](url)).
+func findLinkExtent(node *ast.Link, source []byte) (start, end int, linkText string) {
+	start, end = -1, -1
+
 	if node.ChildCount() == 0 {
-		return -1, -1
+		return
 	}
 
-	// Get the first text child's segment to find where the link text starts
 	firstChild := node.FirstChild()
 	if firstChild == nil {
-		return -1, -1
+		return
 	}
 
-	textNode, ok := firstChild.(*ast.Text)
-	if !ok {
-		return -1, -1
+	// Locate the first content byte inside the link text, then scan back to '['.
+	contentStart := nodeContentStart(firstChild)
+	if contentStart < 0 {
+		return
 	}
-
-	// The '[' should be just before the text segment
-	start := textNode.Segment.Start - 1
-	if start < 0 || source[start] != '[' {
-		return -1, -1
+	pos := contentStart - 1
+	for pos >= 0 && source[pos] != '[' && source[pos] != '\n' {
+		pos--
 	}
-
-	// Find the last text child to get the end of link text
-	lastChild := node.LastChild()
-	lastText, ok := lastChild.(*ast.Text)
-	if !ok {
-		return -1, -1
+	if pos < 0 || source[pos] != '[' {
+		return
 	}
-	textEnd := lastText.Segment.Stop
+	start = pos
 
-	// Scan forward to find the end of the link: ) for inline, ] for reference
-	end := textEnd
-	depth := 0
-	for end < len(source) {
-		ch := source[end]
-		if ch == '(' {
-			depth++
-		} else if ch == ')' {
-			if depth > 0 {
-				depth--
-			}
-			if depth == 0 {
-				end++
-				break
-			}
-		} else if ch == ']' && end > textEnd {
-			// End of reference-style link
-			end++
-			break
-		} else if ch == '\n' {
-			// Don't go past end of line
+	// Scan forward from start+1 to find the matching ']', skipping over code
+	// spans so that a backtick inside the link text doesn't confuse the scan.
+	closeSquare := -1
+	i := start + 1
+	inCode := false
+	for i < len(source) && source[i] != '\n' {
+		if source[i] == '`' {
+			inCode = !inCode
+			i++
+			continue
+		}
+		if !inCode && source[i] == ']' {
+			closeSquare = i
 			break
 		}
-		end++
+		i++
+	}
+	if closeSquare < 0 {
+		start = -1
+		return
 	}
 
-	return start, end
+	linkText = string(source[start+1 : closeSquare])
+
+	// Determine whether this is an inline link ](url) or a reference link ][ref].
+	i = closeSquare + 1
+	if i >= len(source) {
+		start = -1
+		return
+	}
+
+	if source[i] == '(' {
+		// Inline link — scan for the closing ')'.
+		depth := 1
+		i++
+		for i < len(source) && depth > 0 {
+			if source[i] == '(' {
+				depth++
+			} else if source[i] == ')' {
+				depth--
+			}
+			i++
+		}
+		end = i
+	} else if source[i] == '[' {
+		// Reference link — scan for the closing ']'.
+		depth := 1
+		i++
+		for i < len(source) && depth > 0 {
+			if source[i] == '[' {
+				depth++
+			} else if source[i] == ']' {
+				depth--
+			}
+			i++
+		}
+		end = i
+	} else {
+		// Collapsed/shortcut reference: [text] with no trailing (...) or [...].
+		end = closeSquare + 1
+	}
+
+	return
 }
