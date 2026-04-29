@@ -185,3 +185,54 @@ Format all Go source files with `gofmt -w .`. Run this after editing any Go code
 ### `make build`
 
 Build all tool binaries to `bin/`.
+
+
+## Releasing a New Version
+
+Follow these steps in order. Do not skip steps or reorder them.
+
+### 1. Update CHANGELOG.md
+
+Add a new section at the top of `CHANGELOG.md` with the version and today's date. Use semantic versioning:
+- patch (x.y.Z) for bug fixes
+- minor (x.Y.0) for new tools or backwards-compatible features
+- major (X.0.0) for breaking changes
+
+### 2. Commit and tag in md-tools
+
+```
+git add CHANGELOG.md
+git commit -m "AGENT: Add CHANGELOG.md for vX.Y.Z"
+git tag -a vX.Y.Z -m "vX.Y.Z — <one-line summary>"
+git push origin main
+git push origin vX.Y.Z
+```
+
+### 3. Compute the sha256 of the GitHub tarball
+
+After the tag is pushed, GitHub generates a tarball. Compute its sha256:
+
+```
+curl -sL https://github.com/danhorst/md-tools/archive/refs/tags/vX.Y.Z.tar.gz | shasum -a 256
+```
+
+### 4. Update the Homebrew tap
+
+The tap is at `../homebrew-tap/Formula/md-tools.rb` (i.e. `/Users/dbh/git/danhorst/homebrew-tap/Formula/md-tools.rb`).
+
+Update the `url`, `version`, and `sha256` fields:
+
+```ruby
+url "https://github.com/danhorst/md-tools/archive/refs/tags/vX.Y.Z.tar.gz"
+version "X.Y.Z"
+sha256 "<computed hash>"
+```
+
+Then commit in the tap repo:
+
+```
+git add Formula/md-tools.rb
+git commit -m "Update md-tools formula to vX.Y.Z"
+```
+
+The user will push the tap separately.

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.1 — 2026-04-29
+
+### Bug fixes
+
+- **`mdref`** — fix silent skip of inline links whose text is a code span (e.g. `` [`Foo`](url) ``).
+
 ## v1.0.0 — 2026-04-29
 
 Initial release. Ten composable CLI tools for manipulating GitHub Flavored Markdown.
