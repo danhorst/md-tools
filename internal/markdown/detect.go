@@ -50,6 +50,12 @@ func IsListItem(line string) bool {
 	return orderedListRe.MatchString(trimmed)
 }
 
+// IsTableRow returns true if the line is a GFM table row.
+// GFM table rows start with a pipe character.
+func IsTableRow(line string) bool {
+	return strings.HasPrefix(strings.TrimSpace(line), "|")
+}
+
 // IsHorizontalRule returns true if the line is a horizontal rule.
 // Horizontal rules are three or more -, *, or _ characters with optional spaces.
 func IsHorizontalRule(line string) bool {
