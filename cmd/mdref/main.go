@@ -211,15 +211,14 @@ func findRefDefRanges(source []byte) []refDefRange {
 }
 
 // nodeContentStart returns the byte offset of the first content character inside
-// an inline node. It handles *ast.Text directly and recurses into *ast.CodeSpan.
+// an inline node. It handles *ast.Text directly and recurses into any container
+// node (Emphasis, Strong, CodeSpan, etc.) via its first child.
 func nodeContentStart(n ast.Node) int {
-	switch child := n.(type) {
-	case *ast.Text:
-		return child.Segment.Start
-	case *ast.CodeSpan:
-		if first := child.FirstChild(); first != nil {
-			return nodeContentStart(first)
-		}
+	if t, ok := n.(*ast.Text); ok {
+		return t.Segment.Start
+	}
+	if first := n.FirstChild(); first != nil {
+		return nodeContentStart(first)
 	}
 	return -1
 }
