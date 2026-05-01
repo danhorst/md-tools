@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.3 — 2026-04-30
+
+### Tooling
+
+- Add `scripts/release` to automate tagging, SHA256 computation, and Homebrew tap updates.
+
 ## v1.0.2 — 2026-04-30
 
 ### Bug fixes
