@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.2 — 2026-04-30
+
+### Bug fixes
+
+- **`mdref`** — fix silent skip of inline links whose text begins with emphasis or strong markup (e.g. `[_foo_](url)`, `[**bar**](url)`).
+
 ## v1.0.1 — 2026-04-29
 
 ### Bug fixes
