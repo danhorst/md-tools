@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TAP_ROOT="$(cd "$REPO_ROOT/../homebrew-tap" && pwd)"
+FORMULA="$TAP_ROOT/Formula/md-tools.rb"
+CHANGELOG="$REPO_ROOT/CHANGELOG.md"
+
+usage() {
+  echo "Usage: $(basename "$0") vX.Y.Z"
+  exit 1
+}
+
+[ "${1:-}" = "" ] && usage
+VERSION="$1"
+[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Error: version must be vX.Y.Z"; exit 1; }
+BARE="${VERSION#v}"
+
+cd "$REPO_ROOT"
+
+# Ensure working tree is clean (CHANGELOG aside)
+DIRTY=$(git status --porcelain | grep -v 'CHANGELOG' || true)
+[ -n "$DIRTY" ] && { echo "Error: uncommitted changes present"; git status --short; exit 1; }
+
+# Ensure CHANGELOG has an entry for this version
+grep -q "^## v${BARE}" "$CHANGELOG" || {
+  echo "Error: no '## v${BARE}' section found in CHANGELOG.md — add it before releasing"
+  exit 1
+}
+
+TODAY="$(date +%Y-%m-%d)"
+echo "Releasing $VERSION ($TODAY)..."
+
+# 1. Commit and tag
+git add CHANGELOG.md
+git commit -m "Release $VERSION"
+git tag -a "$VERSION" -m "$VERSION"
+
+# 2. Push
+git push origin main
+git push origin "$VERSION"
+
+# 3. Fetch SHA256 (retry — GitHub needs a moment to publish the tarball)
+TARBALL_URL="https://github.com/danhorst/md-tools/archive/refs/tags/${VERSION}.tar.gz"
+echo "Fetching SHA256 for tarball..."
+SHA256=""
+for i in 1 2 3 4 5; do
+  SHA256=$(curl -sL "$TARBALL_URL" | shasum -a 256 | cut -d' ' -f1)
+  [ -n "$SHA256" ] && break
+  echo "  attempt $i failed, retrying in 5s..."
+  sleep 5
+done
+[ -z "$SHA256" ] && { echo "Error: could not fetch tarball SHA256"; exit 1; }
+echo "SHA256: $SHA256"
+
+# 4. Update formula
+sd 'url "https://github\.com/danhorst/md-tools/archive/refs/tags/v[0-9.]+\.tar\.gz"' \
+   "url \"https://github.com/danhorst/md-tools/archive/refs/tags/${VERSION}.tar.gz\"" "$FORMULA"
+sd 'version "[0-9.]+"' "version \"$BARE\"" "$FORMULA"
+sd 'sha256 "[a-f0-9]+"' "sha256 \"$SHA256\"" "$FORMULA"
+
+# 5. Commit tap (user pushes separately)
+cd "$TAP_ROOT"
+git add Formula/md-tools.rb
+git commit -m "Update md-tools to $VERSION"
+
+echo "Done. $VERSION is live."
+echo "Push the tap when ready: cd $TAP_ROOT && git push origin main"
