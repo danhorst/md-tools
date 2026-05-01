@@ -3,6 +3,7 @@
 *.swp
 .claude/*
 !.claude/commands/
+CLAUDE.md
 
 # Go build artifacts
 bin/*
