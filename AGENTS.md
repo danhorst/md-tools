@@ -202,10 +202,4 @@ Add a new section at the top of `CHANGELOG.md` with the version and today's date
 scripts/release vX.Y.Z
 ```
 
-This commits and tags the release, pushes to GitHub, fetches the tarball SHA256, updates the Homebrew formula, and commits the tap. The tap push is left for the user to do manually.
-
-### 3. Push the tap
-
-```
-cd ../homebrew-tap && git push origin main
-```
+This commits and tags the release, pushes to GitHub, fetches the tarball SHA256, and updates and pushes the Homebrew tap.

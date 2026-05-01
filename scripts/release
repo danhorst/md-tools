@@ -60,10 +60,10 @@ sd 'url "https://github\.com/danhorst/md-tools/archive/refs/tags/v[0-9.]+\.tar\.
 sd 'version "[0-9.]+"' "version \"$BARE\"" "$FORMULA"
 sd 'sha256 "[a-f0-9]+"' "sha256 \"$SHA256\"" "$FORMULA"
 
-# 5. Commit tap (user pushes separately)
+# 5. Commit and push tap
 cd "$TAP_ROOT"
 git add Formula/md-tools.rb
 git commit -m "Update md-tools to $VERSION"
+git push origin main
 
 echo "Done. $VERSION is live."
-echo "Push the tap when ready: cd $TAP_ROOT && git push origin main"
