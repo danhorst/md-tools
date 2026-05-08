@@ -13,17 +13,17 @@ To install these tools with that formula, use:
 brew tap danhorst/tap && brew install danhorst/tap/md-tools
 ```
 
-If you don't want to use Homebrew and have [golang][3] installed, `./bin/md-install` builds and installs all the executables into your `$GOPATH`.
-I pre-built binaries are not available at this time.
+If you don't want to use Homebrew and have [golang][3] set up already, `./bin/md-install` builds and installs all the executables into your `$GOPATH`.
+Pre-built binaries are not available at this time.
 
 ## Usage
 
 These utilities are built with the [Unix Philosophy][4] in mind.
 They accept text via [`STDIN`][5] and output to `STDOUT`.
 This let's you _chain_ them with [Unix pipes][6] (`|`).
-They will replace the contents of a provided filename if you use the `-w` flag.
+Use the `-w` flag to replace the contents of a provided file instead of printing to `STDOUT`.
 
-The commands are set up in pairs, each responsible for applying or reverting a style convention:
+The commands are (mostly) set up in pairs, each responsible for applying or reverting a style convention:
 
 ### Links
 
@@ -47,7 +47,7 @@ The commands are set up in pairs, each responsible for applying or reverting a s
 
 ## Hard wrapping
 
-- `mdwrap` wraps body text to 60 characters. The `-c` flag lets you set an arbitrary number.
+- `mdwrap` wraps body text to 60 characters. Specify an arbitrary column count with the`-c` flag.
 - `mdunwrap` removes hard wrapping and returns text into contiguous paragraphs.
 
 ## Colophon
