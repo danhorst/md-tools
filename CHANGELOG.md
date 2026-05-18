@@ -1,26 +1,29 @@
 # Changelog
 
-## v1.0.3 — 2026-04-30
+## [Unreleased]
+
+## [1.0.3] - 2026-04-30
 
 ### Tooling
 
 - Add `scripts/release` to automate tagging, SHA256 computation, and Homebrew tap updates.
 
-## v1.0.2 — 2026-04-30
+## [1.0.2] - 2026-04-30
 
 ### Bug fixes
 
 - **`mdref`** — fix silent skip of inline links whose text begins with emphasis or strong markup (e.g. `[_foo_](url)`, `[**bar**](url)`).
 
-## v1.0.1 — 2026-04-29
+## [1.0.1] - 2026-04-29
 
 ### Bug fixes
 
 - **`mdref`** — fix silent skip of inline links whose text is a code span (e.g. `` [`Foo`](url) ``).
 
-## v1.0.0 — 2026-04-29
+## [1.0.0] - 2026-04-29
 
-Initial release. Ten composable CLI tools for manipulating GitHub Flavored Markdown.
+Initial release.
+Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 
 ### Links
 
@@ -46,3 +49,9 @@ Initial release. Ten composable CLI tools for manipulating GitHub Flavored Markd
 
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
+
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/danhorst/md-tools/compare/v1.0.2...v1.0.3
+[1.0.2]: https://github.com/danhorst/md-tools/compare/v1.0.1...v1.0.2
+[1.0.1]: https://github.com/danhorst/md-tools/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/danhorst/md-tools/releases/tag/v1.0.0

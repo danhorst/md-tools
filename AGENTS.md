@@ -189,9 +189,10 @@ Build all tool binaries to `bin/`.
 
 ## Releasing a New Version
 
-### 1. Update CHANGELOG.md
+### 1. Add changelog entries
 
-Add a new section at the top of `CHANGELOG.md` with the version and today's date. Use semantic versioning:
+Add entries under `## [Unreleased]` in `CHANGELOG.md` as work lands.
+Use semantic versioning for the release:
 - patch (x.y.Z) for bug fixes
 - minor (x.Y.0) for new tools or backwards-compatible features
 - major (X.0.0) for breaking changes
@@ -202,4 +203,7 @@ Add a new section at the top of `CHANGELOG.md` with the version and today's date
 scripts/release vX.Y.Z
 ```
 
-This commits and tags the release, pushes to GitHub, fetches the tarball SHA256, and updates and pushes the Homebrew tap.
+This promotes `[Unreleased]` to a dated version section, updates the comparison links, commits, tags, and pushes.
+GitHub Actions then creates the GitHub release (with notes from CHANGELOG) and updates the Homebrew tap formula.
+
+A `HOMEBREW_TAP_TOKEN` secret must be set on the repository for the tap update step to succeed.
