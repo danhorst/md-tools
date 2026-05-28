@@ -65,7 +65,7 @@ func splitSentences(text string) []string {
 		current.WriteRune(runes[i])
 
 		if runes[i] == '.' || runes[i] == '!' || runes[i] == '?' {
-			if i+2 < len(runes) && runes[i+1] == ' ' && unicode.IsUpper(runes[i+2]) {
+			if i+2 < len(runes) && runes[i+1] == ' ' && !unicode.IsLower(runes[i+2]) {
 				sentences = append(sentences, current.String())
 				current.Reset()
 				i++
