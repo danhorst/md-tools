@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-05-27
+
+### Bug fixes
+
+- **`mdsplit`** — fix sentence boundary not recognized when the next sentence starts with a backtick (or any non-lowercase character such as `_`, `[`, `*`, or a digit).
+
 ## [1.0.3] - 2026-04-30
 
 ### Tooling
@@ -50,7 +56,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/danhorst/md-tools/compare/1.0.3...1.0.4
 [1.0.3]: https://github.com/danhorst/md-tools/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/danhorst/md-tools/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/danhorst/md-tools/compare/v1.0.0...v1.0.1
