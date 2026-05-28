@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/dbh/md-tools/internal/cli"
 	"github.com/dbh/md-tools/internal/markdown"
@@ -56,7 +57,7 @@ func wrapParagraph(lines []string) []string {
 	for _, word := range words {
 		if currentLine.Len() == 0 {
 			currentLine.WriteString(word)
-		} else if currentLine.Len()+1+len(word) <= *wrapWidth {
+		} else if utf8.RuneCountInString(currentLine.String())+1+utf8.RuneCountInString(word) <= *wrapWidth {
 			currentLine.WriteString(" ")
 			currentLine.WriteString(word)
 		} else {
@@ -105,7 +106,7 @@ func wrapToWidth(lines []string, width int) []string {
 	for _, word := range words {
 		if currentLine.Len() == 0 {
 			currentLine.WriteString(word)
-		} else if currentLine.Len()+1+len(word) <= width {
+		} else if utf8.RuneCountInString(currentLine.String())+1+utf8.RuneCountInString(word) <= width {
 			currentLine.WriteString(" ")
 			currentLine.WriteString(word)
 		} else {

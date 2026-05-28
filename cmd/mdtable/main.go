@@ -14,6 +14,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/dbh/md-tools/internal/cli"
 	"github.com/dbh/md-tools/internal/markdown"
@@ -159,8 +160,8 @@ func normalizeTable(rows []string) []string {
 			continue
 		}
 		for j, cell := range cells {
-			if j < numCols && len(cell) > widths[j] {
-				widths[j] = len(cell)
+			if j < numCols && utf8.RuneCountInString(cell) > widths[j] {
+				widths[j] = utf8.RuneCountInString(cell)
 			}
 		}
 	}
@@ -179,7 +180,7 @@ func normalizeTable(rows []string) []string {
 				sb.WriteString(padSeparator(cell, widths[j]))
 			} else {
 				sb.WriteString(cell)
-				sb.WriteString(strings.Repeat(" ", widths[j]-len(cell)))
+				sb.WriteString(strings.Repeat(" ", widths[j]-utf8.RuneCountInString(cell)))
 			}
 			sb.WriteString(" ")
 		}
