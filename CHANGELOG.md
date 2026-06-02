@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-06-02
+
 ### Bug fixes
 
 - **`mdtable`** — fix `|` inside backtick code spans being treated as a column delimiter.
@@ -67,7 +69,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.0.6...HEAD
+[1.0.6]: https://github.com/danhorst/md-tools/compare/1.0.5...1.0.6
 [1.0.5]: https://github.com/danhorst/md-tools/compare/1.0.4...1.0.5
 [1.0.4]: https://github.com/danhorst/md-tools/compare/1.0.3...1.0.4
 [1.0.3]: https://github.com/danhorst/md-tools/compare/v1.0.2...v1.0.3
