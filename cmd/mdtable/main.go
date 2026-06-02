@@ -192,6 +192,7 @@ func normalizeTable(rows []string) []string {
 }
 
 // parseRow splits a GFM table row into trimmed cell strings.
+// | inside backtick code spans and \| escapes are treated as literal, not delimiters.
 func parseRow(line string) []string {
 	trimmed := strings.TrimSpace(line)
 	if strings.HasPrefix(trimmed, "|") {
@@ -200,11 +201,57 @@ func parseRow(line string) []string {
 	if strings.HasSuffix(trimmed, "|") {
 		trimmed = trimmed[:len(trimmed)-1]
 	}
-	parts := strings.Split(trimmed, "|")
-	cells := make([]string, len(parts))
-	for i, p := range parts {
-		cells[i] = strings.TrimSpace(p)
+
+	var cells []string
+	var current strings.Builder
+	runes := []rune(trimmed)
+	i := 0
+	for i < len(runes) {
+		r := runes[i]
+		switch {
+		case r == '\\' && i+1 < len(runes) && runes[i+1] == '|':
+			current.WriteRune('\\')
+			current.WriteRune('|')
+			i += 2
+		case r == '`':
+			j := i
+			for j < len(runes) && runes[j] == '`' {
+				j++
+			}
+			openerLen := j - i
+			for k := i; k < j; k++ {
+				current.WriteRune(runes[k])
+			}
+			i = j
+			for i < len(runes) {
+				if runes[i] == '`' {
+					k := i
+					for k < len(runes) && runes[k] == '`' {
+						k++
+					}
+					closerLen := k - i
+					for m := i; m < k; m++ {
+						current.WriteRune(runes[m])
+					}
+					i = k
+					if closerLen == openerLen {
+						break
+					}
+				} else {
+					current.WriteRune(runes[i])
+					i++
+				}
+			}
+		case r == '|':
+			cells = append(cells, strings.TrimSpace(current.String()))
+			current.Reset()
+			i++
+		default:
+			current.WriteRune(r)
+			i++
+		}
 	}
+	cells = append(cells, strings.TrimSpace(current.String()))
 	return cells
 }
 

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Bug fixes
+
+- **`mdtable`** — fix `|` inside backtick code spans being treated as a column delimiter.
+
 ## [1.0.5] - 2026-05-28
 
 ### Bug fixes
