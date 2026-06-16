@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-06-16
+
 ### Features
 
 - Add `-v` and `-version` flags to every tool, printing `<tool> <version>`.
@@ -84,7 +86,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/danhorst/md-tools/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/danhorst/md-tools/compare/1.0.6...1.1.0
 [1.0.6]: https://github.com/danhorst/md-tools/compare/1.0.5...1.0.6
 [1.0.5]: https://github.com/danhorst/md-tools/compare/1.0.4...1.0.5
