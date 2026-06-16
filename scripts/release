@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CHANGELOG="$REPO_ROOT/CHANGELOG.md"
+VERSION_FILE="$REPO_ROOT/internal/cli/version.go"
 
 usage() {
   echo "Usage: $(basename "$0") vX.Y.Z"
@@ -16,8 +17,8 @@ VERSION="$1"
 
 cd "$REPO_ROOT"
 
-# Ensure working tree is clean (CHANGELOG aside)
-DIRTY=$(git status --porcelain | grep -v 'CHANGELOG' || true)
+# Ensure working tree is clean (CHANGELOG and version.go aside)
+DIRTY=$(git status --porcelain | grep -Ev '(CHANGELOG\.md|internal/cli/version\.go)' || true)
 [ -n "$DIRTY" ] && { echo "Error: uncommitted changes present"; git status --short; exit 1; }
 
 # Ensure [Unreleased] has content to promote
@@ -40,12 +41,15 @@ sd "\[Unreleased\]: https://github\.com/danhorst/md-tools/compare/.*\.\.\.HEAD" 
    "[Unreleased]: https://github.com/danhorst/md-tools/compare/${VERSION}...HEAD\n[$BARE]: https://github.com/danhorst/md-tools/compare/${PREV_BARE}...${BARE}" \
    "$CHANGELOG"
 
-# 2. Commit and tag
-git add CHANGELOG.md
+# 2. Bump the Version constant
+sd 'const Version = "[^"]+"' "const Version = \"$BARE\"" "$VERSION_FILE"
+
+# 3. Commit and tag
+git add CHANGELOG.md "$VERSION_FILE"
 git commit -m "Release $VERSION"
 git tag -a "$VERSION" -m "$VERSION"
 
-# 3. Push — CI handles release creation and formula update
+# 4. Push — CI handles release creation and formula update
 git push origin main
 git push origin "$VERSION"
 

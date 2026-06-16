@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -71,20 +72,15 @@ func TestInPlaceFlag(t *testing.T) {
 			}
 		})
 
-		t.Run(tool+"/positional_arg_rejected", func(t *testing.T) {
+		t.Run(tool+"/missing_file_arg", func(t *testing.T) {
 			binary := buildTool(t, tool)
-			out := filepath.Join(t.TempDir(), "out.md")
-			extra := filepath.Join(t.TempDir(), "extra.md")
-			if err := os.WriteFile(extra, []byte("hi\n"), 0644); err != nil {
-				t.Fatal(err)
-			}
 
-			cmd := exec.Command(binary, "-i", out, extra)
+			cmd := exec.Command(binary, "-i")
 			cmd.Stdin = strings.NewReader("hi\n")
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
 			if err := cmd.Run(); err == nil {
-				t.Fatalf("expected error when -i is given a positional file argument")
+				t.Fatalf("expected error when -i is missing a file argument")
 			}
 			if !strings.Contains(stderr.String(), "-i") {
 				t.Errorf("expected stderr to mention -i, got %q", stderr.String())
@@ -93,13 +89,12 @@ func TestInPlaceFlag(t *testing.T) {
 
 		t.Run(tool+"/conflicts_with_w", func(t *testing.T) {
 			binary := buildTool(t, tool)
-			out := filepath.Join(t.TempDir(), "out.md")
 			src := filepath.Join(t.TempDir(), "src.md")
 			if err := os.WriteFile(src, []byte("hi\n"), 0644); err != nil {
 				t.Fatal(err)
 			}
 
-			cmd := exec.Command(binary, "-i", out, "-w", src)
+			cmd := exec.Command(binary, "-i", "-w", src)
 			cmd.Stdin = strings.NewReader("hi\n")
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
@@ -110,6 +105,33 @@ func TestInPlaceFlag(t *testing.T) {
 				t.Errorf("expected stderr to mention mutual exclusion, got %q", stderr.String())
 			}
 		})
+	}
+}
+
+// TestVersionFlag verifies that -v and -version both print "name VERSION".
+func TestVersionFlag(t *testing.T) {
+	for _, tool := range []string{"mdsplit", "mdtable"} {
+		tool := tool
+		for _, flagName := range []string{"-v", "-version"} {
+			flagName := flagName
+			t.Run(tool+"/"+strings.TrimLeft(flagName, "-"), func(t *testing.T) {
+				binary := buildTool(t, tool)
+				cmd := exec.Command(binary, flagName)
+				out, err := cmd.Output()
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				got := strings.TrimSpace(string(out))
+				if !strings.HasPrefix(got, tool+" ") {
+					t.Errorf("expected output to start with %q, got %q", tool+" ", got)
+				}
+				// Version is at least vN.N.N.
+				rest := strings.TrimPrefix(got, tool+" ")
+				if !regexp.MustCompile(`^\d+\.\d+\.\d+`).MatchString(rest) {
+					t.Errorf("expected semver version after tool name, got %q", got)
+				}
+			})
+		}
 	}
 }
 

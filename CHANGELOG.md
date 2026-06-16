@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Features
+
+- Add `-v` and `-version` flags to every tool, printing `<tool> <version>`.
+
+### Changes
+
+- `-i` is now a boolean flag with the destination file passed as a positional argument (mirroring `-w`). The command form `mdsplit X | mdtable -i X` is unchanged.
+- Aligned help output: all flag names line up in a single column regardless of length.
+
 ## [1.1.0] - 2026-06-16
 
 ### Features

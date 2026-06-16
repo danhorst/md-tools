@@ -23,14 +23,11 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-var (
-	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
-	inPlaceFile  = flag.String("i", "", "read stdin and write result to `file`")
-)
+var flags = cli.RegisterFlags()
 
 func main() {
 	flag.Parse()
-	if err := cli.Run(flag.Args(), *writeInPlace, *inPlaceFile, "mdinline", transform); err != nil {
+	if err := cli.Run("mdinline", flags, flag.Args(), transform); err != nil {
 		fmt.Fprintf(os.Stderr, "mdinline: %v\n", err)
 		os.Exit(1)
 	}

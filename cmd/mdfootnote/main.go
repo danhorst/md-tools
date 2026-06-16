@@ -19,14 +19,11 @@ import (
 	"github.com/dbh/md-tools/internal/cli"
 )
 
-var (
-	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
-	inPlaceFile  = flag.String("i", "", "read stdin and write result to `file`")
-)
+var flags = cli.RegisterFlags()
 
 func main() {
 	flag.Parse()
-	if err := cli.Run(flag.Args(), *writeInPlace, *inPlaceFile, "mdfootnote", transform); err != nil {
+	if err := cli.Run("mdfootnote", flags, flag.Args(), transform); err != nil {
 		fmt.Fprintf(os.Stderr, "mdfootnote: %v\n", err)
 		os.Exit(1)
 	}
