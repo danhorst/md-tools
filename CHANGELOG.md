@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-06-16
+
 ### Features
 
 - Add `-i FILE` flag to every tool: read stdin, write the transformed result to `FILE`. Enables the natural pipe chain `mdsplit X | mdtable -i X` to round-trip a file through both transforms in one command. `-i` is mutually exclusive with `-w` and requires data on stdin.
@@ -73,7 +75,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.0.6...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/danhorst/md-tools/compare/1.0.6...1.1.0
 [1.0.6]: https://github.com/danhorst/md-tools/compare/1.0.5...1.0.6
 [1.0.5]: https://github.com/danhorst/md-tools/compare/1.0.4...1.0.5
 [1.0.4]: https://github.com/danhorst/md-tools/compare/1.0.3...1.0.4
