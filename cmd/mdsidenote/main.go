@@ -28,11 +28,14 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-var writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+var (
+	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+	inPlaceFile  = flag.String("i", "", "read stdin and write result to `file`")
+)
 
 func main() {
 	flag.Parse()
-	if err := cli.Run(flag.Args(), *writeInPlace, "mdsidenote", transform); err != nil {
+	if err := cli.Run(flag.Args(), *writeInPlace, *inPlaceFile, "mdsidenote", transform); err != nil {
 		fmt.Fprintf(os.Stderr, "mdsidenote: %v\n", err)
 		os.Exit(1)
 	}

@@ -21,12 +21,13 @@ import (
 
 var (
 	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+	inPlaceFile  = flag.String("i", "", "read stdin and write result to `file`")
 	wrapWidth    = flag.Int("c", 60, "column width to wrap to")
 )
 
 func main() {
 	flag.Parse()
-	if err := cli.Run(flag.Args(), *writeInPlace, "mdwrap", transform); err != nil {
+	if err := cli.Run(flag.Args(), *writeInPlace, *inPlaceFile, "mdwrap", transform); err != nil {
 		fmt.Fprintf(os.Stderr, "mdwrap: %v\n", err)
 		os.Exit(1)
 	}

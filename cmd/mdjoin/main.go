@@ -17,11 +17,14 @@ import (
 	"github.com/dbh/md-tools/internal/markdown"
 )
 
-var writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+var (
+	writeInPlace = flag.Bool("w", false, "write result to file instead of stdout")
+	inPlaceFile  = flag.String("i", "", "read stdin and write result to `file`")
+)
 
 func main() {
 	flag.Parse()
-	if err := cli.Run(flag.Args(), *writeInPlace, "mdjoin", transform); err != nil {
+	if err := cli.Run(flag.Args(), *writeInPlace, *inPlaceFile, "mdjoin", transform); err != nil {
 		fmt.Fprintf(os.Stderr, "mdjoin: %v\n", err)
 		os.Exit(1)
 	}

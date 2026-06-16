@@ -21,7 +21,8 @@ Pre-built binaries are not available at this time.
 These utilities are built with the [Unix Philosophy][4] in mind.
 They accept text via [`STDIN`][5] and output to `STDOUT`.
 This let's you _chain_ them with [Unix pipes][6] (`|`).
-Use the `-w` flag to replace the contents of a provided file instead of printing to `STDOUT`.
+Use the `-w FILE` flag to replace the contents of `FILE` instead of printing to `STDOUT`.
+Use `-i FILE` to read from `STDIN` and write the result to `FILE` — useful at the end of a pipe chain (e.g. `mdsplit X | mdtable -i X`).
 
 The commands are (mostly) set up in pairs, each responsible for applying or reverting a style convention:
 

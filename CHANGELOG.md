@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Features
+
+- Add `-i FILE` flag to every tool: read stdin, write the transformed result to `FILE`. Enables the natural pipe chain `mdsplit X | mdtable -i X` to round-trip a file through both transforms in one command. `-i` is mutually exclusive with `-w` and requires data on stdin.
+
 ## [1.0.6] - 2026-06-02
 
 ### Bug fixes
