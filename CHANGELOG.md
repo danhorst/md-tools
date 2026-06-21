@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-06-21
+
 ### Bug fixes
 
 - **`mdsplit`** — don't split a sentence inside an inline span (code spans, links, emphasis `*`/`_`/`**`, and strikethrough `~~`); previously a sentence boundary within the span orphaned its delimiters across lines. A sentence that ends inside a span (e.g. `**Done.** Next`) now breaks after the span.
@@ -96,7 +98,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/danhorst/md-tools/compare/1.1.2...1.1.3
 [1.1.2]: https://github.com/danhorst/md-tools/compare/1.1.1...1.1.2
 [1.1.1]: https://github.com/danhorst/md-tools/compare/1.1.0...1.1.1
 [1.1.0]: https://github.com/danhorst/md-tools/compare/1.0.6...1.1.0
