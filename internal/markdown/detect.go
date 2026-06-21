@@ -28,6 +28,26 @@ func IsFootnoteDefinition(line string) bool {
 	return footnoteDefRe.MatchString(line)
 }
 
+// IsFootnoteContinuation returns true if the line continues the body of a
+// preceding footnote definition: a non-blank line that does not itself start
+// another block-level construct.
+func IsFootnoteContinuation(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false
+	}
+	if IsFootnoteDefinition(line) || IsLinkRefDefinition(line) {
+		return false
+	}
+	if strings.HasPrefix(trimmed, "#") ||
+		strings.HasPrefix(trimmed, ">") ||
+		strings.HasPrefix(trimmed, "```") ||
+		strings.HasPrefix(trimmed, "~~~") {
+		return false
+	}
+	return !IsListItem(line) && !IsTableRow(line) && !IsHorizontalRule(line)
+}
+
 // IsLinkRefDefinition returns true if the line is a link reference definition.
 // Link reference definitions have the form [label]: URL
 // This excludes footnote definitions.

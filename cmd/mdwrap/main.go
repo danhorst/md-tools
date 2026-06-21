@@ -5,6 +5,7 @@
 //	mdwrap [file...]
 //	cat file.md | mdwrap
 //	mdwrap -c 80 file.md  # wrap to 80 columns
+//	mdwrap -f file.md     # also wrap footnote bodies
 //	mdwrap -w file.md     # modify file in place
 package main
 
@@ -20,9 +21,14 @@ import (
 )
 
 var (
-	flags     = cli.RegisterFlags()
-	wrapWidth = flag.Int("c", 60, "column width to wrap to")
+	flags         = cli.RegisterFlags()
+	wrapWidth     = flag.Int("c", 60, "column width to wrap to")
+	wrapFootnotes = flag.Bool("f", false, "wrap footnote bodies, indenting continuation lines 4 spaces")
 )
+
+// footnoteIndent prefixes continuation lines of a wrapped footnote. Four spaces
+// keeps the continuation parsable as part of the footnote in strict engines.
+const footnoteIndent = "    "
 
 func main() {
 	flag.Parse()
@@ -33,10 +39,57 @@ func main() {
 }
 
 func transform(content string) string {
-	return markdown.Transform(content, markdown.Handlers{
+	h := markdown.Handlers{
 		Paragraph:  wrapParagraph,
 		Blockquote: wrapBlockquote,
-	})
+	}
+	if *wrapFootnotes {
+		h.Footnote = wrapFootnote
+	}
+	return markdown.Transform(content, h)
+}
+
+// wrapFootnote wraps a footnote definition's body to the column width, keeping
+// the "[^label]: " marker on the first line and indenting continuation lines.
+func wrapFootnote(lines []string) []string {
+	idx := strings.Index(lines[0], "]:")
+	prefix := lines[0][:idx+2] + " "
+	body := append([]string{strings.TrimSpace(lines[0][idx+2:])}, lines[1:]...)
+
+	words := strings.Fields(strings.Join(body, " "))
+	if len(words) == 0 {
+		return []string{strings.TrimRight(prefix, " ")}
+	}
+
+	var result []string
+	var cur strings.Builder
+	first := true
+	width := *wrapWidth - utf8.RuneCountInString(prefix)
+	flush := func() {
+		if first {
+			result = append(result, prefix+cur.String())
+			first = false
+			width = *wrapWidth - len(footnoteIndent)
+		} else {
+			result = append(result, footnoteIndent+cur.String())
+		}
+		cur.Reset()
+	}
+
+	for _, word := range words {
+		switch {
+		case cur.Len() == 0:
+			cur.WriteString(word)
+		case utf8.RuneCountInString(cur.String())+1+utf8.RuneCountInString(word) <= width:
+			cur.WriteString(" ")
+			cur.WriteString(word)
+		default:
+			flush()
+			cur.WriteString(word)
+		}
+	}
+	flush()
+	return result
 }
 
 func wrapParagraph(lines []string) []string {

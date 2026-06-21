@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // buildTool builds a single tool and returns its binary path.
@@ -133,6 +134,50 @@ func TestVersionFlag(t *testing.T) {
 			})
 		}
 	}
+}
+
+// TestFootnoteWrapFlag verifies mdwrap -f wraps footnote bodies to the column
+// width with continuation lines indented four spaces, and leaves them on a
+// single line without the flag.
+func TestFootnoteWrapFlag(t *testing.T) {
+	mdwrap := buildTool(t, "mdwrap")
+	input := "[^1]: A footnote whose body is long enough to wrap across several lines once the column width is applied to it.\n"
+
+	t.Run("default_leaves_single_line", func(t *testing.T) {
+		cmd := exec.Command(mdwrap)
+		cmd.Stdin = strings.NewReader(input)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Count(strings.TrimSpace(string(out)), "\n") != 0 {
+			t.Errorf("expected footnote to stay on one line without -f, got:\n%s", out)
+		}
+	})
+
+	t.Run("flag_wraps_and_indents", func(t *testing.T) {
+		cmd := exec.Command(mdwrap, "-f", "-c", "60")
+		cmd.Stdin = strings.NewReader(input)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines := strings.Split(strings.TrimRight(string(out), "\n"), "\n")
+		if len(lines) < 2 {
+			t.Fatalf("expected footnote to wrap to multiple lines, got:\n%s", out)
+		}
+		if !strings.HasPrefix(lines[0], "[^1]: ") {
+			t.Errorf("expected first line to keep the marker, got %q", lines[0])
+		}
+		for _, l := range lines[1:] {
+			if !strings.HasPrefix(l, "    ") {
+				t.Errorf("expected continuation line indented 4 spaces, got %q", l)
+			}
+			if utf8.RuneCountInString(l) > 60 {
+				t.Errorf("line exceeds width: %q (%d)", l, utf8.RuneCountInString(l))
+			}
+		}
+	})
 }
 
 // TestInPlaceFlagChain verifies the canonical mdsplit X | mdtable -i X form:

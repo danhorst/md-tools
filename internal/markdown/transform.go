@@ -11,6 +11,10 @@ type Handlers struct {
 	// Blockquote is called with consecutive blockquote lines ("> " prefix
 	// intact) and returns the transformed lines.
 	Blockquote func(lines []string) []string
+	// Footnote is called with a footnote definition's lines (the "[^label]:"
+	// line plus any continuation lines) and returns the transformed lines.
+	// When nil, footnote definitions are emitted verbatim.
+	Footnote func(lines []string) []string
 }
 
 // Transform applies a Markdown-aware transformation to content, routing each
@@ -81,10 +85,21 @@ func Transform(content string, h Handlers) string {
 			continue
 		}
 
-		// Footnote definition
+		// Footnote definition and its continuation lines. Without a Footnote
+		// handler the block is emitted verbatim, so a multi-sentence footnote
+		// stays on one line and renders portably across Markdown engines.
 		if IsFootnoteDefinition(line) {
-			result = append(result, line)
+			fnLines := []string{line}
 			i++
+			for i < len(lines) && IsFootnoteContinuation(lines[i]) {
+				fnLines = append(fnLines, lines[i])
+				i++
+			}
+			if h.Footnote != nil {
+				result = append(result, h.Footnote(fnLines)...)
+			} else {
+				result = append(result, fnLines...)
+			}
 			continue
 		}
 

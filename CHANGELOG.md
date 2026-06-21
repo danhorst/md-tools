@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Features
+
+- **`mdwrap`** — add `-f` to wrap footnote bodies to the column width, indenting continuation lines four spaces (valid footnote continuation in strict engines).
+
+### Bug fixes
+
+- **`mdsplit`** — never split sentences inside a footnote definition. A definition and its continuation lines are now treated as one block and passed through unchanged, so multi-sentence footnotes stay portable. This also applies to `mdjoin`, `mdwrap`, and `mdunwrap`.
+
 ## [1.1.3] - 2026-06-21
 
 ### Bug fixes
