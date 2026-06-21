@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Bug fixes
+
+- **`mdsplit`** — don't split a sentence inside an inline span (code spans, links, emphasis `*`/`_`/`**`, and strikethrough `~~`); previously a sentence boundary within the span orphaned its delimiters across lines. A sentence that ends inside a span (e.g. `**Done.** Next`) now breaks after the span.
+
 ## [1.1.2] - 2026-06-21
 
 ### Bug fixes
