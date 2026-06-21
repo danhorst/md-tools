@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Bug fixes
+
+- **`mdsplit`** — fix sentences being split inside inline footnotes (`^[...]`), and fix two sentences being joined onto one line when a footnote (`[^1]` or `^[...]`) follows the terminal punctuation of the first.
+
 ## [1.1.1] - 2026-06-16
 
 ### Features

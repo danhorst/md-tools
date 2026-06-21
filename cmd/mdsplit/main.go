@@ -62,13 +62,44 @@ func splitSentences(text string) []string {
 	runes := []rune(text)
 
 	for i := 0; i < len(runes); i++ {
+		// Inline footnote (^[...]) — copy verbatim, never split inside.
+		if runes[i] == '^' && i+1 < len(runes) && runes[i+1] == '[' {
+			depth := 0
+			for ; i < len(runes); i++ {
+				current.WriteRune(runes[i])
+				if runes[i] == '[' {
+					depth++
+				} else if runes[i] == ']' {
+					depth--
+					if depth == 0 {
+						break
+					}
+				}
+			}
+			continue
+		}
+
 		current.WriteRune(runes[i])
 
 		if runes[i] == '.' || runes[i] == '!' || runes[i] == '?' {
-			if i+2 < len(runes) && runes[i+1] == ' ' && !unicode.IsLower(runes[i+2]) {
+			// A footnote (reference or inline) may follow the terminal
+			// punctuation, e.g. "end.[^1] Next" or "end.^[note] Next".
+			// Skip past any such markup before testing the boundary.
+			j := i + 1
+			for {
+				n := footnoteLen(runes, j)
+				if n == 0 {
+					break
+				}
+				j += n
+			}
+			if j+1 < len(runes) && runes[j] == ' ' && !unicode.IsLower(runes[j+1]) {
+				for k := i + 1; k < j; k++ {
+					current.WriteRune(runes[k])
+				}
 				sentences = append(sentences, current.String())
 				current.Reset()
-				i++
+				i = j
 			}
 		}
 	}
@@ -78,6 +109,39 @@ func splitSentences(text string) []string {
 	}
 
 	return sentences
+}
+
+// footnoteLen returns the rune length of a footnote beginning at start, or 0
+// if none is present there. It recognizes both reference footnotes ([^label])
+// and inline footnotes (^[...], which may contain nested brackets).
+func footnoteLen(runes []rune, start int) int {
+	if start+1 >= len(runes) {
+		return 0
+	}
+	switch {
+	case runes[start] == '[' && runes[start+1] == '^':
+		for k := start + 2; k < len(runes); k++ {
+			if runes[k] == ']' {
+				return k - start + 1
+			}
+			if runes[k] == '[' {
+				return 0
+			}
+		}
+	case runes[start] == '^' && runes[start+1] == '[':
+		depth := 0
+		for k := start + 1; k < len(runes); k++ {
+			if runes[k] == '[' {
+				depth++
+			} else if runes[k] == ']' {
+				depth--
+				if depth == 0 {
+					return k - start + 1
+				}
+			}
+		}
+	}
+	return 0
 }
 
 // splitBlockquote splits blockquote lines into one sentence per line.
