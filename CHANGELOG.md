@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-07-14
+
+### Changes
+
+- Update all dependencies to latest (`golang.org/x/net` v0.47.0 → v0.57.0, `goldmark` v1.7.16 → v1.8.4, `html-to-markdown/v2` v2.5.0 → v2.5.2, `dom` v0.2.0 → v0.3.1); bumps `go.mod` toolchain directive to 1.25.0.
+
 ## [1.1.4] - 2026-06-21
 
 ### Features
@@ -108,7 +114,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.4...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.5...HEAD
+[1.1.5]: https://github.com/danhorst/md-tools/compare/1.1.4...1.1.5
 [1.1.4]: https://github.com/danhorst/md-tools/compare/1.1.3...1.1.4
 [1.1.3]: https://github.com/danhorst/md-tools/compare/1.1.2...1.1.3
 [1.1.2]: https://github.com/danhorst/md-tools/compare/1.1.1...1.1.2
