@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
+[ -f go.mod ] || { echo "Error: no go.mod found"; exit 1; }
+
+DIRTY=$(git status --porcelain)
+[ -n "$DIRTY" ] && { echo "Error: uncommitted changes present"; git status --short; exit 1; }
+
+echo "== Outdated modules =="
+go list -m -u all
+
+echo "== Updating =="
+go get -u ./...
+go mod tidy
+
+echo "== Verifying build =="
+go vet ./...
+go build ./...
+
+echo "== Remaining outdated modules (should be empty) =="
+go list -m -u all | grep '\[' || echo "none"
+
+echo "== go.mod/go.sum diff =="
+git diff --stat go.mod go.sum
