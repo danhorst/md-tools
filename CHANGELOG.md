@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Bug fixes
+
+- **`mdsplit`** — don't split a sentence after a known abbreviation (`e.g.`, `i.e.`, `n.b.`, `et al.`, and the honorifics `Mr.`/`Mrs.`/`Dr.`/`Ms.`/`St.`/`Jr.`/`Sr.`) even when followed by a capitalized word or digit, e.g. `(e.g. 15m/20m)` no longer splits after `e.g.`. `etc.` is deliberately excluded — it's commonly used as a genuine sentence terminus, and telling that apart from mid-sentence use needs a look-ahead this matcher doesn't do.
+
 ## [1.1.5] - 2026-07-14
 
 ### Changes

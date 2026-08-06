@@ -84,6 +84,9 @@ func splitSentences(text string) []string {
 		current.WriteRune(runes[i])
 
 		if runes[i] == '.' || runes[i] == '!' || runes[i] == '?' {
+			if runes[i] == '.' && isAbbreviation(runes, i) {
+				continue
+			}
 			// A footnote (reference or inline) may follow the terminal
 			// punctuation, e.g. "end.[^1] Next" or "end.^[note] Next".
 			// Skip past any such markup before testing the boundary.
@@ -111,6 +114,35 @@ func splitSentences(text string) []string {
 	}
 
 	return sentences
+}
+
+// abbreviations never end a sentence, even when followed by a capitalized
+// word, a digit, or other non-lowercase character. "etc." is deliberately
+// excluded: unlike these, it is commonly used as a sentence terminus, and
+// telling that case apart from its mid-sentence use needs a look-ahead this
+// matcher doesn't do.
+var abbreviations = []string{
+	"e.g.", "i.e.", "n.b.", "et al.",
+	"mr.", "mrs.", "dr.", "ms.", "st.", "jr.", "sr.",
+}
+
+// isAbbreviation reports whether the text ending at i (runes[i] == '.')
+// case-insensitively matches a known abbreviation at a word boundary.
+func isAbbreviation(runes []rune, i int) bool {
+	for _, abbr := range abbreviations {
+		n := len(abbr) // abbreviations are ASCII; rune count == byte count
+		start := i - n + 1
+		if start < 0 {
+			continue
+		}
+		if start > 0 && isWordChar(runes[start-1]) {
+			continue // part of a larger word, not the abbreviation itself
+		}
+		if strings.EqualFold(string(runes[start:i+1]), abbr) {
+			return true
+		}
+	}
+	return false
 }
 
 // footnoteLen returns the rune length of a footnote beginning at start, or 0
