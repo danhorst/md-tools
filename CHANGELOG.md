@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-08-06
+
 ### Bug fixes
 
 - **`mdsplit`** — don't split a sentence after a known abbreviation (`e.g.`, `i.e.`, `n.b.`, `et al.`, and the honorifics `Mr.`/`Mrs.`/`Dr.`/`Ms.`/`St.`/`Jr.`/`Sr.`) even when followed by a capitalized word or digit, e.g. `(e.g. 15m/20m)` no longer splits after `e.g.`. `etc.` is deliberately excluded — it's commonly used as a genuine sentence terminus, and telling that apart from mid-sentence use needs a look-ahead this matcher doesn't do.
@@ -118,7 +120,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.5...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.6...HEAD
+[1.1.6]: https://github.com/danhorst/md-tools/compare/1.1.5...1.1.6
 [1.1.5]: https://github.com/danhorst/md-tools/compare/1.1.4...1.1.5
 [1.1.4]: https://github.com/danhorst/md-tools/compare/1.1.3...1.1.4
 [1.1.3]: https://github.com/danhorst/md-tools/compare/1.1.2...1.1.3
