@@ -64,3 +64,17 @@ both happen. Folded in rather than shipped and patched, since nothing is release
 - [x] 7.8 Add `flags_test.go` cases: script refused, `on*` refused, `foreignObject` refused with the hint, unparseable refused, `-unsafe-svg` inlines anyway, remote reference warns while stdout stays clean.
 - [x] 7.9 Confirm `fixtures/mdhtml/diagram.svg` still passes vetting and all 120 subtests stay green.
 - [x] 7.10 Document `-unsafe-svg` and the trust boundary in `README.md` and `CHANGELOG.md`, stating plainly that the check is a guard against accident, not a guarantee.
+
+## 8. GitHub alerts
+
+Added after review: `AGENTS.md` names GFM as the target flavor and this repo's own
+README uses `> [!NOTE]`, but goldmark's GFM extension does not implement alerts —
+they are a GitHub feature layered on the spec, not part of it.
+
+- [x] 8.1 Strip the marker line in a paragraph transformer, during block parsing while `Lines()` still drives rendering — by the time AST transformers run, `[!NOTE]` has fragmented into three Text nodes because the link parser backtracks on `[`.
+- [x] 8.2 Tag the enclosing blockquote with `markdown-alert markdown-alert-<kind>`, matching GitHub's class names so stylesheets written against its markup apply.
+- [x] 8.3 Insert the title paragraph in an AST transformer, after inline parsing, so the synthetic node is not re-parsed. The class attribute carries the kind between the two phases.
+- [x] 8.4 Recognize all five types case-insensitively; leave unknown markers and ordinary blockquotes untouched.
+- [x] 8.5 Style the five variants in `default.css` with accent rules and colored labels rather than filled boxes, and keep alerts from splitting across pages in print.
+- [x] 8.6 Add `fixtures/mdhtml/alerts` covering all five types, lowercase, marker-only, multi-block, an unknown type, and a plain blockquote.
+- [x] 8.7 Confirm the README's own alert renders as a callout.

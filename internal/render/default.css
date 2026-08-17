@@ -52,6 +52,32 @@ blockquote p:last-child {
   margin-bottom: 0;
 }
 
+/* --- GitHub alerts ---------------------------------------------------- */
+/* > [!NOTE] and friends. Restrained to suit the surrounding type: an accent
+   rule and a colored label rather than GitHub's filled boxes. */
+
+.markdown-alert {
+  font-style: normal;
+  border-left: 3px solid var(--alert-accent, #57606a);
+  margin: 1.5rem 0;
+  padding-left: 1.2rem;
+}
+
+.markdown-alert-title {
+  color: var(--alert-accent, #57606a);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+
+.markdown-alert-note      { --alert-accent: #0969da; }
+.markdown-alert-tip       { --alert-accent: #1a7f37; }
+.markdown-alert-important { --alert-accent: #8250df; }
+.markdown-alert-warning   { --alert-accent: #9a6700; }
+.markdown-alert-caution   { --alert-accent: #cf222e; }
+
 hr {
   border: 0;
   border-top: 1px solid #ccc;
@@ -248,8 +274,12 @@ label.margin-toggle:not(.sidenote-number) {
     background: none;
   }
 
-  pre, blockquote, table, figure, svg, img {
+  pre, blockquote, table, figure, svg, img, .markdown-alert {
     break-inside: avoid;
+  }
+
+  .markdown-alert-title {
+    color: #000;
   }
 
   h1, h2, h3, h4, h5, h6 {

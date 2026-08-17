@@ -55,6 +55,10 @@ The commands are (mostly) set up in pairs, each responsible for applying or reve
 
 - `mdhtml` renders a markdown document to standalone HTML.
 
+GFM is rendered as you'd expect: tables with per-column alignment, task lists, strikethrough, autolinks, and footnotes.
+GitHub alerts (`> [!NOTE]` and friends) become callouts carrying GitHub's class names, so a stylesheet written for GitHub's markup applies.
+Raw HTML passes through untouched—that's what lets `mdsidenote` output survive—so `mdhtml` is a renderer, not a sanitizer.
+
 The default output is a complete document with an embedded stylesheet derived from [Tufte CSS][9], sized to the sidenote markup `mdsidenote` produces.
 Use `-css FILE` to supply your own stylesheet, `-no-css` to omit it entirely, or `-fragment` to emit just the body content for pasting into a template.
 The document title comes from `-title`, defaulting to the input file's name.

@@ -24,6 +24,42 @@ Output SHALL be written to STDOUT by default.
 - **WHEN** the same input is rendered twice with the same flags
 - **THEN** both outputs are byte-for-byte identical
 
+### Requirement: GitHub alerts render as callouts
+
+A blockquote whose first line is an alert marker — `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]`, or `[!CAUTION]` — SHALL render as a callout carrying GitHub's class names, with the marker removed and a title added.
+Marker matching SHALL be case-insensitive.
+A blockquote whose first line is not a recognized marker SHALL render unchanged.
+
+#### Scenario: Alert renders with class and title
+
+- **WHEN** a blockquote opens with `[!NOTE]`
+- **THEN** it carries the classes `markdown-alert` and `markdown-alert-note`, contains a title element reading `Note`, and the literal `[!NOTE]` does not appear in the output
+
+#### Scenario: Every type is recognized
+
+- **WHEN** a blockquote opens with any of the five markers
+- **THEN** each renders with its own type-specific class and its own title
+
+#### Scenario: Case-insensitive
+
+- **WHEN** a blockquote opens with `[!note]`
+- **THEN** it renders as a note alert
+
+#### Scenario: Marker alone
+
+- **WHEN** a blockquote contains only the marker line
+- **THEN** it renders as an alert with a title and no body
+
+#### Scenario: Unrecognized marker left alone
+
+- **WHEN** a blockquote opens with `[!BOGUS]`
+- **THEN** it renders as an ordinary blockquote with the text intact
+
+#### Scenario: Ordinary blockquote unaffected
+
+- **WHEN** a blockquote does not open with a marker
+- **THEN** it renders as an ordinary blockquote
+
 ### Requirement: Standalone document structure
 
 By default the system SHALL emit a complete HTML document: a doctype, `html`, `head` with a charset declaration and a title, and `body` containing the rendered content.
