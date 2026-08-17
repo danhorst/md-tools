@@ -202,18 +202,13 @@ label.margin-toggle:not(.sidenote-number) {
   display: none;
 }
 
-/* Footnotes, when a document keeps them instead of converting to sidenotes. */
+/* Footnotes, when a document keeps them instead of converting to sidenotes.
+   goldmark opens the section with its own <hr>, which does the dividing. That
+   rule is in the markup, so it survives -no-css and -fragment; a border here
+   would only exist while this stylesheet does. */
 .footnotes {
   max-width: 55ch;
   font-size: 0.9rem;
-  border-top: 1px solid #ccc;
-  margin-top: 3rem;
-  padding-top: 1rem;
-}
-
-/* goldmark opens the section with its own rule; the border above already divides. */
-.footnotes > hr {
-  display: none;
 }
 
 /* --- Narrow screens --------------------------------------------------- */
