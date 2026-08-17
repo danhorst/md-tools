@@ -1,8 +1,22 @@
 /* Tufte-flavored defaults, sized to mdsidenote's sidenote markup.
    Override with --css FILE, or drop entirely with --no-css. */
 
+/* Padding counts inside a width, so a padded block — <pre>, a blockquote, an
+   alert — stays inside the measure instead of overhanging it by its padding. */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 html {
   font-size: 15px;
+}
+
+:root {
+  /* The measure, as one font-independent value. It is 70ch of the body face
+     at the root size, expressed in rem deliberately: `ch` resolves against
+     each element's own font, so a monospace <pre> given the same `ch` count
+     comes out wider than the prose and spills into the sidenote gutter. */
+  --measure: 35rem;
 }
 
 body {
@@ -16,9 +30,10 @@ body {
   background: #fffff8;
 }
 
-/* Body text occupies the left half; the right stays clear for sidenotes. */
+/* Everything in the main column shares one width, so a code block lines up
+   with the prose instead of reaching into the sidenote gutter. */
 p, ol, ul, dl, blockquote, table, pre, h1, h2, h3, h4, h5, h6 {
-  max-width: 55ch;
+  max-width: var(--measure);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -93,7 +108,7 @@ hr {
   border: 0;
   border-top: 1px solid #ccc;
   margin: 2.5rem 0;
-  max-width: 55ch;
+  max-width: var(--measure);
 }
 
 img, svg {
@@ -207,7 +222,7 @@ label.margin-toggle:not(.sidenote-number) {
    rule is in the markup, so it survives -no-css and -fragment; a border here
    would only exist while this stylesheet does. */
 .footnotes {
-  max-width: 55ch;
+  max-width: var(--measure);
   font-size: 0.9rem;
 }
 
