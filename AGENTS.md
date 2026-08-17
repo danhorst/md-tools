@@ -19,6 +19,11 @@ Target Domain
   - Semantic rewriting or stylistic improvements
   - Automatic heuristics beyond explicitly defined behavior
   - “Helpful” transformations not specified by fixtures
+  - Rendering past HTML — `mdhtml` is the last tool this repository will grow
+
+`mdhtml` is the boundary, decided rather than incidental.
+Diagram rendering and PDF output need a browser, and they live in a separate project so that installing these tools stays a fast, dependency-light build.
+Proposals to add them here should be declined and pointed at that project.
 
 Agents must not expand scope beyond the defined transformations.
 
