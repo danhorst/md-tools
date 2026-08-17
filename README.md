@@ -37,6 +37,16 @@ The commands are (mostly) set up in pairs, each responsible for applying or reve
 - `mdsidenote` converts markdown footnotes into HTML literals for [sidenotes][8] that can be styled with [Tufte CSS][9] (or a derivative).
 - `mdfootnote` attempts to convert HTML markup for sidenotes back into markdown footnotes.
 
+The pair round-trips, and keeps doing so if you run `mdsplit`, `mdjoin`, or `mdwrap` in between.
+One thing doesn't survive: a reference-style link _inside_ a footnote gets inlined on the way out, because `mdsidenote` resolves it and drops the label, so `mdfootnote` has nothing to rebuild the reference from.
+Everything else comes back.
+
+If you have documents written before the marker moved onto the preceding line, `mdfootnote FILE | mdsidenote` converts them.
+
+> [!NOTE]
+> Markdown footnotes and sidenotes count separately, so a document using both gets two independent numbering sequences and two notes labelled "1".
+> Pick one or the other.
+
 ### Sentence structure
 
 - `mdsplit` takes paragraphs where all the sentences aren't separated by new lines (like [iA Writer][10] expects) and splits each sentence onto it's own line.
@@ -88,6 +98,9 @@ Does that make this a "[vibe coding][14]" project?
 Sort of.
 I've been looking at the source, telling the agent to do things, controlling git commits, and maintaining tight control over the `fixtures` that define success.
 The results aren't _stellar_ but they solve problems I've had for a long time and never got around to coding a solution myself.
+
+There's an `examples/showcase.md` that exercises everything `mdhtml` renders on one page.
+`bin/mdhtml --inline-svg examples/showcase.md > showcase.html` is the quickest way to see what the default styling looks like.
 
 Although I used [Claude Code][12], the instructions are all in `AGENTS.md`.
 There is a utility script (`bin/agent-setup`) that takes care of symlinking `AGENTS.md` to `CLAUDE.md`.

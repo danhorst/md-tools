@@ -83,3 +83,12 @@ they are a GitHub feature layered on the spec, not part of it.
 
 - [x] 9.1 Suppress the list marker on items carrying a checkbox and pull the checkbox into the marker position, so a task item does not show both a bullet and a box. Applies to ordered lists too.
 - [x] 9.2 Add `fixtures/mdhtml/tasklist` covering checked and unchecked items, inline markup, a plain item mixed in, nesting, an ordered task list, and one inside an alert.
+
+## 10. Accessibility and layout coverage
+
+- [x] 10.1 Carry an image reference's alt text onto the inlined `svg` as `role="img"` and an accessible name; leave an empty alt alone and never override a file's own declaration.
+- [x] 10.2 Add `examples/showcase.md` and `examples/diagram.svg`, exercising every construct on one page. No golden — default output embeds the whole stylesheet.
+- [x] 10.3 Add `layout_test.go`: measure the rendered page in headless Chrome via `--dump-dom`, asserting relationships rather than pixels. No new Go dependency.
+- [x] 10.4 Verify each assertion against a deliberately reintroduced regression before trusting it. This caught a defect in the test itself — it measured the list item's box rather than its text, so the checkbox regression it was written for went undetected.
+- [x] 10.5 Guard the print media query scope directly, since `--dump-dom` renders screen media and the geometry assertions cannot see that class of regression.
+- [x] 10.6 Skip cleanly when no browser is found; no Chrome in CI.
