@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### New tools
+
+- **`mdhtml`** — render a markdown document to standalone HTML. Emits a complete document by default (`-fragment` for body content only), with an embedded Tufte-derived stylesheet sized to `mdsidenote`'s sidenote markup — override with `-css FILE`, drop with `-no-css`. `-title` sets the document title, defaulting to the input file's base name. YAML frontmatter is stripped rather than rendered. `-inline-svg` replaces referenced `.svg` files with their contents inline, namespacing identifiers so the same diagram can appear twice without colliding; relative references resolve against the input file's directory, or `-base DIR` when reading from stdin. `-w` is refused, since it would overwrite the markdown source with HTML — use `-i FILE` or shell redirection.
+
+  Inlining moves an SVG out of an image context, where browsers execute no scripts and load nothing external, into the live document where both happen. `mdhtml` therefore refuses to inline an SVG containing a `<script>`, an `on*` handler, a `<foreignObject>`, a `javascript:` URL, a `<use>` pointing at another document, SMIL rewriting a link target, or an `@import`, and refuses any file it cannot parse. `-unsafe-svg` skips the check. Inspection walks the XML token stream rather than matching patterns, so entity-encoded payloads are caught; it is a guard against accident, not a guarantee against a determined attacker. External resource references warn rather than refuse — they leak the reader's address without executing. Remote `.svg` references are never fetched, since that would break deterministic output; they stay `<img>` tags and warn on stderr.
+
+### Changes
+
+- `AGENTS.md` gains an "Output Formats" section permitting markdown → other-text-format tools, exempting them from idempotency and the `.out.md` fixture convention, and stating that tools requiring an external runtime do not belong in this repository.
+- Fixtures may supply per-fixture command-line arguments in an optional `<name>.flags` file, and the golden sibling is now discovered as `<name>.out.<ext>` rather than assumed to be `.out.md`. Idempotency is only asserted for tools whose output is markdown.
+- Frontmatter detection moves out of `markdown.Transform` into `markdown.SplitFrontmatter`. No behavior change — every existing fixture passes unaltered.
+
 ## [1.1.6] - 2026-08-06
 
 ### Bug fixes

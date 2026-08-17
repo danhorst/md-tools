@@ -2,6 +2,7 @@ package fixtures_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,8 +10,41 @@ import (
 	"testing"
 )
 
+// findExpectedOutput locates the golden file for a fixture. Markdown filters
+// pair <name>.in.md with <name>.out.md; renderers pair it with another
+// extension, so the sibling is discovered rather than assumed.
+func findExpectedOutput(dir, testName string) (string, error) {
+	matches, err := filepath.Glob(filepath.Join(dir, testName+".out.*"))
+	if err != nil {
+		return "", err
+	}
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("no .out.* file for fixture %s", testName)
+	case 1:
+		return matches[0], nil
+	default:
+		return "", fmt.Errorf("multiple .out.* files for fixture %s: %v", testName, matches)
+	}
+}
+
+// readFixtureFlags returns the arguments in an optional <name>.flags file,
+// which lets a fixture exercise a tool's flags. Fixtures without one run the
+// tool bare.
+func readFixtureFlags(dir, testName string) ([]string, error) {
+	data, err := os.ReadFile(filepath.Join(dir, testName+".flags"))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return strings.Fields(string(data)), nil
+}
+
 // TestFixtures discovers and runs all fixture tests.
-// Fixtures are organized as fixtures/<tool>/<name>.in.md and fixtures/<tool>/<name>.out.md
+// Fixtures are organized as fixtures/<tool>/<name>.in.md and a sibling
+// fixtures/<tool>/<name>.out.<ext> golden file.
 func TestFixtures(t *testing.T) {
 	// Find all .in.md files
 	inputs, err := filepath.Glob("fixtures/*/*.in.md")
@@ -52,8 +86,18 @@ func TestFixtures(t *testing.T) {
 		baseName := filepath.Base(inputPath)
 		testName := strings.TrimSuffix(baseName, ".in.md")
 
-		// Construct expected output path
-		outputPath := filepath.Join(dir, testName+".out.md")
+		// Locate the expected output. The extension varies: markdown filters
+		// use .out.md, renderers emit another format (e.g. .out.html).
+		outputPath, err := findExpectedOutput(dir, testName)
+		if err != nil {
+			t.Fatalf("%s: %v", inputPath, err)
+		}
+
+		// Optional per-fixture flags.
+		fixtureArgs, err := readFixtureFlags(dir, testName)
+		if err != nil {
+			t.Fatalf("%s: %v", inputPath, err)
+		}
 
 		t.Run(toolName+"/"+testName, func(t *testing.T) {
 			binary, ok := tools[toolName]
@@ -74,7 +118,7 @@ func TestFixtures(t *testing.T) {
 			}
 
 			// Run tool
-			cmd := exec.Command(binary)
+			cmd := exec.Command(binary, fixtureArgs...)
 			cmd.Stdin = bytes.NewReader(input)
 			actual, err := cmd.Output()
 			if err != nil {
@@ -90,6 +134,12 @@ func TestFixtures(t *testing.T) {
 			}
 		})
 
+		// Idempotency only applies when the output is markdown. T(T(x)) == T(x)
+		// is undefined for a tool that renders into another format.
+		if filepath.Ext(outputPath) != ".md" {
+			continue
+		}
+
 		// Also test idempotency: T(T(input)) == T(input)
 		t.Run(toolName+"/"+testName+"/idempotent", func(t *testing.T) {
 			binary, ok := tools[toolName]
@@ -104,7 +154,7 @@ func TestFixtures(t *testing.T) {
 			}
 
 			// Run tool on expected output
-			cmd := exec.Command(binary)
+			cmd := exec.Command(binary, fixtureArgs...)
 			cmd.Stdin = bytes.NewReader(firstPass)
 			secondPass, err := cmd.Output()
 			if err != nil {

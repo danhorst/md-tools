@@ -51,6 +51,29 @@ The commands are (mostly) set up in pairs, each responsible for applying or reve
 - `mdwrap` wraps body text to 60 characters. Specify an arbitrary column count with the`-c` flag.
 - `mdunwrap` removes hard wrapping and returns text into contiguous paragraphs.
 
+## Rendering
+
+- `mdhtml` renders a markdown document to standalone HTML.
+
+The default output is a complete document with an embedded stylesheet derived from [Tufte CSS][9], sized to the sidenote markup `mdsidenote` produces.
+Use `-css FILE` to supply your own stylesheet, `-no-css` to omit it entirely, or `-fragment` to emit just the body content for pasting into a template.
+The document title comes from `-title`, defaulting to the input file's name.
+YAML frontmatter is stripped rather than rendered.
+
+`-inline-svg` replaces referenced `.svg` files with their contents inline, so the document stands on its own with no external assets.
+Identifiers are namespaced per diagram, so the same file can appear twice without its internal styles colliding.
+References resolve against the input file's directory, or `-base DIR` when reading from `STDIN`.
+
+Inlining moves an SVG from an image—where the browser runs no scripts and loads nothing external—into the live document, where it can do both.
+So `mdhtml` refuses to inline an SVG carrying a script, an event handler, a `foreignObject`, a `javascript:` URL, or a reference to another document, and refuses anything it can't parse.
+Pass `-unsafe-svg` when you know the file.
+Treat that check as a guard against accident, not a guarantee: what actually keeps you safe is only inlining SVG you generated.[^2]
+
+Remote references are never fetched—that would make the output depend on the network—so they stay `<img>` tags and get a note on `STDERR`.
+
+Unlike the other tools, `mdhtml` refuses `-w` — it would replace your markdown source with HTML.
+Use `-i FILE` or a shell redirect instead.
+
 ## Colophon
 
 > [!NOTE]
@@ -66,6 +89,8 @@ Although I used [Claude Code][12], the instructions are all in `AGENTS.md`.
 There is a utility script (`bin/agent-setup`) that takes care of symlinking `AGENTS.md` to `CLAUDE.md`.
 
 [^1]: Assuming you don't just tell an LLM to do all your formatting for you—what a waste of tokens!
+
+[^2]: Sanitizing the SVG instead was tempting, but getting it wrong fails silently and leaves you believing the output is clean. Refusing is honest about what it does and doesn't know.
 
 [1]: https://brew.sh/
 [2]: https://github.com/danhorst/homebrew-tap

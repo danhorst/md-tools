@@ -224,3 +224,189 @@ func TestInPlaceFlagChain(t *testing.T) {
 		t.Errorf("expected mdtable transform applied (padded columns); got:\n%s", got)
 	}
 }
+
+// writeSVGDoc writes an SVG and a markdown file referencing it into dir,
+// returning the markdown path.
+func writeSVGDoc(t *testing.T, dir, name, svg string) string {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(dir, name+".svg"), []byte(svg), 0644); err != nil {
+		t.Fatalf("write svg: %v", err)
+	}
+	mdPath := filepath.Join(dir, name+".md")
+	if err := os.WriteFile(mdPath, []byte("![x]("+name+".svg)\n"), 0644); err != nil {
+		t.Fatalf("write md: %v", err)
+	}
+	return mdPath
+}
+
+// TestInlineSVGRefusesActiveContent covers the trust boundary that -inline-svg
+// crosses: a browser runs no scripts in an <img>, but does once the same file
+// is inlined into the document.
+func TestInlineSVGRefusesActiveContent(t *testing.T) {
+	binary := buildTool(t, "mdhtml")
+
+	cases := []struct {
+		name    string
+		svg     string
+		wantMsg string
+	}{
+		{"script", `<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`, "<script>"},
+		{"handler", `<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect/></svg>`, "onload="},
+		{"foreignobject", `<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div/></foreignObject></svg>`, "htmlLabels"},
+		{"jsurl", `<svg xmlns="http://www.w3.org/2000/svg"><a href="javascript:alert(1)"><rect/></a></svg>`, "javascript:"},
+		{"entity_jsurl", `<svg xmlns="http://www.w3.org/2000/svg"><a href="&#106;avascript:alert(1)"><rect/></a></svg>`, "javascript:"},
+		{"external_use", `<svg xmlns="http://www.w3.org/2000/svg"><use href="https://e.test/x.svg#a"/></svg>`, "another document"},
+		{"smil", `<svg xmlns="http://www.w3.org/2000/svg"><a><animate attributeName="href" to="javascript:x"/></a></svg>`, "link target"},
+		{"css_import", `<svg xmlns="http://www.w3.org/2000/svg"><style>@import url(https://e.test/x.css);</style></svg>`, "@import"},
+		{"malformed", `<svg xmlns="http://www.w3.org/2000/svg"><rect></svg>`, "cannot parse"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			mdPath := writeSVGDoc(t, dir, tc.name, tc.svg)
+
+			var stdout, stderr bytes.Buffer
+			cmd := exec.Command(binary, "-inline-svg", "-base", dir, mdPath)
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+			err := cmd.Run()
+
+			if err == nil {
+				t.Fatalf("expected refusal, got exit 0\nstdout: %s", stdout.String())
+			}
+			msg := stderr.String()
+			if !strings.Contains(msg, tc.wantMsg) {
+				t.Errorf("error should mention %q, got: %s", tc.wantMsg, msg)
+			}
+			if !strings.Contains(msg, tc.name+".svg") {
+				t.Errorf("error should name the file, got: %s", msg)
+			}
+			if !strings.Contains(msg, "-unsafe-svg") {
+				t.Errorf("error should offer the override, got: %s", msg)
+			}
+		})
+	}
+}
+
+// TestInlineSVGUnsafeOverride verifies -unsafe-svg skips inspection.
+func TestInlineSVGUnsafeOverride(t *testing.T) {
+	binary := buildTool(t, "mdhtml")
+	dir := t.TempDir()
+	mdPath := writeSVGDoc(t, dir, "bad", `<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`)
+
+	out, err := exec.Command(binary, "-fragment", "-inline-svg", "-unsafe-svg", "-base", dir, mdPath).Output()
+	if err != nil {
+		t.Fatalf("-unsafe-svg should inline anyway: %v", err)
+	}
+	if !strings.Contains(string(out), "<script>") {
+		t.Errorf("expected the SVG inlined verbatim, got: %s", out)
+	}
+}
+
+// TestInlineSVGAcceptsOrdinaryDiagram guards against the vetting becoming so
+// strict it rejects the diagrams this feature exists to render.
+func TestInlineSVGAcceptsOrdinaryDiagram(t *testing.T) {
+	binary := buildTool(t, "mdhtml")
+	dir := t.TempDir()
+	svg := `<svg xmlns="http://www.w3.org/2000/svg" id="c"><style>#c .b{fill:#000}</style>` +
+		`<defs><marker id="a"><path d="M0,0"/></marker></defs>` +
+		`<rect class="b"/><line marker-end="url(#a)"/><text>a&nbsp;b &amp; c</text></svg>`
+	mdPath := writeSVGDoc(t, dir, "diagram", svg)
+
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command(binary, "-fragment", "-inline-svg", "-base", dir, mdPath)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("ordinary diagram refused: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "<svg") {
+		t.Errorf("expected inlined svg, got: %s", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("expected no warnings, got: %s", stderr.String())
+	}
+}
+
+// TestInlineSVGRemoteReference verifies a remote reference is left as an <img>
+// and reported, without polluting stdout.
+func TestInlineSVGRemoteReference(t *testing.T) {
+	binary := buildTool(t, "mdhtml")
+	dir := t.TempDir()
+	mdPath := filepath.Join(dir, "remote.md")
+	if err := os.WriteFile(mdPath, []byte("![r](https://e.test/a.svg)\n"), 0644); err != nil {
+		t.Fatalf("write md: %v", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command(binary, "-fragment", "-inline-svg", "-base", dir, mdPath)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("remote reference should not fail: %v\nstderr: %s", err, stderr.String())
+	}
+
+	if !strings.Contains(stdout.String(), `<img src="https://e.test/a.svg"`) {
+		t.Errorf("remote reference should stay an img, got: %s", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "mdhtml:") {
+		t.Errorf("warning leaked into stdout: %s", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "not self-contained") {
+		t.Errorf("expected a warning on stderr, got: %s", stderr.String())
+	}
+}
+
+// TestInlineSVGExternalResourceWarns verifies an external resource is reported
+// but does not block inlining: it leaks the reader's address without executing.
+func TestInlineSVGExternalResourceWarns(t *testing.T) {
+	binary := buildTool(t, "mdhtml")
+	dir := t.TempDir()
+	mdPath := writeSVGDoc(t, dir, "ext",
+		`<svg xmlns="http://www.w3.org/2000/svg"><image href="https://e.test/x.png"/></svg>`)
+
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command(binary, "-fragment", "-inline-svg", "-base", dir, mdPath)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("external resource should warn, not refuse: %v\nstderr: %s", err, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "<svg") {
+		t.Errorf("expected the svg inlined, got: %s", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "external resource") {
+		t.Errorf("expected a warning, got: %s", stderr.String())
+	}
+}
+
+// TestWriteInPlaceRefused verifies mdhtml refuses -w, which elsewhere in the
+// toolkit rewrites the input file and here would replace Markdown with HTML.
+func TestWriteInPlaceRefused(t *testing.T) {
+	binary := buildTool(t, "mdhtml")
+	dir := t.TempDir()
+	mdPath := filepath.Join(dir, "doc.md")
+	original := "# Title\n"
+	if err := os.WriteFile(mdPath, []byte(original), 0644); err != nil {
+		t.Fatalf("write md: %v", err)
+	}
+
+	var stderr bytes.Buffer
+	cmd := exec.Command(binary, "-w", mdPath)
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err == nil {
+		t.Fatal("expected -w to be refused")
+	}
+	if !strings.Contains(stderr.String(), "-i FILE") {
+		t.Errorf("error should suggest the alternative, got: %s", stderr.String())
+	}
+
+	after, err := os.ReadFile(mdPath)
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if string(after) != original {
+		t.Errorf("source file was modified: %q", after)
+	}
+}

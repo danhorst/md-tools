@@ -100,6 +100,7 @@ Fixture Style
 - Each fixture consists of:
 - input.md
 - expected.md
+- An optional `<name>.flags` file supplies command-line arguments; without one the tool runs bare
 
 Fixtures define behavior. Code must conform to fixtures, not vice versa.
 
@@ -114,6 +115,20 @@ Fixtures should cover:
 - Idempotency cases
 
 Property-based testing is optional but welcome.
+
+
+## Output Formats
+
+Most tools are Markdown → Markdown.
+A tool may render Markdown into another text format when that is its declared single transformation.
+
+For such tools:
+
+- Idempotency does not apply — the output is not in the input domain
+- Golden fixtures are `<name>.in.md` / `<name>.out.<ext>`
+- Determinism, STDIN/STDOUT, exit codes, and one transformation per binary continue to apply unchanged
+
+Tools requiring an external runtime — a browser, a PDF engine — do not belong in this repository.
 
 
 ## Parsing Strategy

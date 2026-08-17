@@ -1,0 +1,262 @@
+/* Tufte-flavored defaults, sized to mdsidenote's sidenote markup.
+   Override with --css FILE, or drop entirely with --no-css. */
+
+html {
+  font-size: 15px;
+}
+
+body {
+  counter-reset: sidenote-counter;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  max-width: 1400px;
+  font-family: Palatino, "Palatino Linotype", Georgia, serif;
+  line-height: 1.6;
+  color: #111;
+  background: #fffff8;
+}
+
+/* Body text occupies the left half; the right stays clear for sidenotes. */
+p, ol, ul, dl, blockquote, table, pre, h1, h2, h3, h4, h5, h6 {
+  max-width: 55ch;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 400;
+  line-height: 1.2;
+  margin: 2rem 0 1rem;
+}
+
+h1 { font-size: 2.6rem; margin-top: 0; }
+h2 { font-size: 1.9rem; font-style: italic; }
+h3 { font-size: 1.4rem; font-style: italic; }
+h4, h5, h6 { font-size: 1.1rem; }
+
+p {
+  margin: 0 0 1.2rem;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 2px;
+}
+
+blockquote {
+  margin: 1.5rem 0;
+  padding-left: 1.5rem;
+  border-left: 2px solid #ccc;
+  font-style: italic;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #ccc;
+  margin: 2.5rem 0;
+  max-width: 55ch;
+}
+
+img, svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Diagrams and figures may use the full measure including the margin. */
+p > svg, p > img {
+  max-width: 100%;
+}
+
+code, pre, kbd, samp {
+  font-family: Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.85em;
+}
+
+code {
+  background: #f0efe6;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+pre {
+  overflow-x: auto;
+  padding: 1rem;
+  background: #f0efe6;
+  border-radius: 3px;
+  line-height: 1.45;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+}
+
+table {
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.95rem;
+  display: block;
+  overflow-x: auto;
+}
+
+th, td {
+  padding: 0.4rem 0.8rem;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  border-bottom: 2px solid #999;
+  font-weight: 600;
+}
+
+/* --- Sidenotes -------------------------------------------------------- */
+/* Markup comes from mdsidenote:
+     <label for="sidenote-N" class="margin-toggle sidenote-number"></label>
+     <input type="checkbox" id="sidenote-N" class="margin-toggle"/>
+     <span class="sidenote">...</span>                                     */
+
+.sidenote-number {
+  counter-increment: sidenote-counter;
+}
+
+.sidenote-number::after {
+  content: counter(sidenote-counter);
+  font-size: 0.7rem;
+  vertical-align: super;
+  line-height: 0;
+  margin-left: 1px;
+}
+
+.sidenote {
+  float: right;
+  clear: right;
+  width: 45%;
+  margin-right: -55%;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  vertical-align: baseline;
+  position: relative;
+}
+
+.sidenote::before {
+  content: counter(sidenote-counter) " ";
+  font-size: 0.7rem;
+  vertical-align: super;
+  line-height: 0;
+}
+
+/* Parentheses exist for plain-text extraction, not for display. */
+.sidenote .hidden {
+  display: none;
+}
+
+/* The checkbox is a narrow-screen affordance and never shows. The numbered
+   label carries the counter, so it must stay visible even though mdsidenote
+   gives it the margin-toggle class too. */
+input.margin-toggle {
+  display: none;
+}
+
+label.margin-toggle:not(.sidenote-number) {
+  display: none;
+}
+
+/* Footnotes, when a document keeps them instead of converting to sidenotes. */
+.footnotes {
+  max-width: 55ch;
+  font-size: 0.9rem;
+  border-top: 1px solid #ccc;
+  margin-top: 3rem;
+  padding-top: 1rem;
+}
+
+/* goldmark opens the section with its own rule; the border above already divides. */
+.footnotes > hr {
+  display: none;
+}
+
+/* --- Narrow screens --------------------------------------------------- */
+/* Sidenotes collapse into tap-to-reveal notes; the checkbox does the work. */
+
+@media (max-width: 1000px) {
+  body {
+    padding: 1.5rem 1rem;
+  }
+
+  .sidenote-number {
+    cursor: pointer;
+    display: inline;
+  }
+
+  .sidenote {
+    display: none;
+  }
+
+  .margin-toggle:checked + .sidenote {
+    display: block;
+    float: none;
+    width: auto;
+    margin: 1rem 0;
+    padding: 0.8rem;
+    background: #f0efe6;
+    border-radius: 3px;
+  }
+}
+
+/* --- Print ------------------------------------------------------------ */
+
+@media print {
+  @page {
+    size: letter;
+    margin: 1in 1in 1in 1in;
+  }
+
+  html {
+    font-size: 11pt;
+  }
+
+  body {
+    max-width: none;
+    padding: 0;
+    background: #fff;
+    color: #000;
+  }
+
+  /* Keep the margin column so sidenotes stay beside the text in print. */
+  p, ol, ul, dl, blockquote, table, pre, h1, h2, h3, h4, h5, h6 {
+    max-width: 4.6in;
+  }
+
+  .sidenote {
+    display: block;
+    float: right;
+    clear: right;
+    width: 1.8in;
+    margin-right: -2.2in;
+    font-size: 8.5pt;
+  }
+
+  .margin-toggle:checked + .sidenote {
+    float: right;
+    width: 1.8in;
+    margin: 0 -2.2in 1rem 0;
+    padding: 0;
+    background: none;
+  }
+
+  pre, blockquote, table, figure, svg, img {
+    break-inside: avoid;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+  }
+
+  a {
+    text-decoration: none;
+  }
+}
