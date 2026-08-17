@@ -78,3 +78,8 @@ they are a GitHub feature layered on the spec, not part of it.
 - [x] 8.5 Style the five variants in `default.css` with accent rules and colored labels rather than filled boxes, and keep alerts from splitting across pages in print.
 - [x] 8.6 Add `fixtures/mdhtml/alerts` covering all five types, lowercase, marker-only, multi-block, an unknown type, and a plain blockquote.
 - [x] 8.7 Confirm the README's own alert renders as a callout.
+
+## 9. Task list presentation
+
+- [x] 9.1 Suppress the list marker on items carrying a checkbox and pull the checkbox into the marker position, so a task item does not show both a bullet and a box. Applies to ordered lists too.
+- [x] 9.2 Add `fixtures/mdhtml/tasklist` covering checked and unchecked items, inline markup, a plain item mixed in, nesting, an ordered task list, and one inside an alert.

@@ -78,6 +78,17 @@ blockquote p:last-child {
 .markdown-alert-warning   { --alert-accent: #9a6700; }
 .markdown-alert-caution   { --alert-accent: #cf222e; }
 
+/* A task list item already has a marker, so the bullet or number would be
+   redundant. Matches how GitHub renders them. */
+li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+
+li > input[type="checkbox"] {
+  margin: 0 0.4em 0 -1.35em;
+  vertical-align: middle;
+}
+
 hr {
   border: 0;
   border-top: 1px solid #ccc;
