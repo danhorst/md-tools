@@ -110,6 +110,10 @@ func Run(toolName string, flags *Flags, args []string, transform TransformFunc) 
 	}
 
 	// Default: read from files or stdin, write to stdout
+	//
+	// TODO: only args[0] is read; any further arguments are silently ignored,
+	// which contradicts the CLI contract in AGENTS.md. cli.Input already
+	// concatenates them and is unused — see the note there.
 	var input io.ReadCloser
 	if len(args) == 0 {
 		input = os.Stdin

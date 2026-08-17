@@ -44,8 +44,8 @@ Everything else comes back.
 If you have documents written before the marker moved onto the preceding line, `mdfootnote FILE | mdsidenote` converts them.
 
 > [!NOTE]
-> Markdown footnotes and sidenotes count separately, so a document using both gets two independent numbering sequences and two notes labelled "1".
-> Pick one or the other.
+> If you add a new markdown footnote to a document you've already run `mdsidenote` on, it numbers from 1 independently of the sidenotes—so you get two notes labelled "1".
+> Re-run the conversion from the footnote form rather than mixing the two.
 
 ### Sentence structure
 

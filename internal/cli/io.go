@@ -6,6 +6,14 @@ import (
 	"os"
 )
 
+// TODO: nothing calls Input. Run opens args[0] and ignores the rest, so every
+// tool silently drops extra file arguments — `mdsplit a.md b.md` prints only
+// a.md, with no error. AGENTS.md promises "one or more file paths as
+// arguments", so either wire this up in Run or reject extra arguments and drop
+// this file. Wiring it up changes behavior for all eleven binaries, and -w
+// needs deciding separately: it rewrites each argument in place, which does not
+// compose with concatenating them. See also the note in runner.go.
+
 // Input returns a reader for the tool's input. If file arguments are provided,
 // it opens and concatenates them. Otherwise, it returns stdin.
 // Per the CLI contract: if both stdin and file arguments are provided,
