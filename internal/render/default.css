@@ -243,11 +243,18 @@ label.margin-toggle:not(.sidenote-number) {
 .footnotes {
   max-width: var(--measure);
   font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 /* Note text sits on the same left edge as the prose, with the numbers hanging
    into the margin. Positioning from the right edge right-aligns them for free,
    so 1. and 10. line up without any width arithmetic. */
+/* Keep the section break above the rule, but close the gap below it — against
+   a tightened list, the generic 2.5rem left a hole. */
+.footnotes hr {
+  margin-bottom: 1.2rem;
+}
+
 .footnotes ol {
   list-style: none;
   counter-reset: footnote;
@@ -258,6 +265,21 @@ label.margin-toggle:not(.sidenote-number) {
 .footnotes li {
   counter-increment: footnote;
   position: relative;
+  margin-bottom: 0.7rem;
+}
+
+.footnotes li:last-child {
+  margin-bottom: 0;
+}
+
+/* Paragraphs within one note sit closer together than the notes do, so a
+   multi-paragraph note still reads as a single note rather than as two. */
+.footnotes li p {
+  margin-bottom: 0.35rem;
+}
+
+.footnotes li p:last-child {
+  margin-bottom: 0;
 }
 
 .footnotes li::before {
