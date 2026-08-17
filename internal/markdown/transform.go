@@ -25,39 +25,10 @@ type Handlers struct {
 func Transform(content string, h Handlers) string {
 	lines := strings.Split(content, "\n")
 	var result []string
-	i := 0
 
-	// Handle YAML frontmatter (two formats: ---/--- or property-line/---)
-	if i < len(lines) {
-		hasFrontmatter := false
-		if strings.TrimSpace(lines[i]) == "---" {
-			if i+1 < len(lines) && LooksLikeFrontmatterProperty(lines[i+1]) {
-				hasFrontmatter = true
-				result = append(result, lines[i])
-				i++
-			}
-		} else if LooksLikeFrontmatterProperty(lines[i]) {
-			for j := i + 1; j < len(lines); j++ {
-				if strings.TrimSpace(lines[j]) == "---" {
-					hasFrontmatter = true
-					break
-				}
-				if strings.TrimSpace(lines[j]) == "" {
-					break
-				}
-			}
-		}
-		if hasFrontmatter {
-			for i < len(lines) && strings.TrimSpace(lines[i]) != "---" {
-				result = append(result, lines[i])
-				i++
-			}
-			if i < len(lines) {
-				result = append(result, lines[i])
-				i++
-			}
-		}
-	}
+	// Frontmatter passes through unchanged.
+	i := frontmatterLineCount(lines)
+	result = append(result, lines[:i]...)
 
 	for i < len(lines) {
 		line := lines[i]
