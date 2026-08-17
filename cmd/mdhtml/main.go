@@ -151,6 +151,7 @@ func renderDoc(content, docTitle, css, base string) (string, error) {
 var (
 	imgRe      = regexp.MustCompile(`<img\s[^>]*>`)
 	srcRe      = regexp.MustCompile(`\ssrc="([^"]*)"`)
+	altRe      = regexp.MustCompile(`\salt="([^"]*)"`)
 	svgIDRe    = regexp.MustCompile(`\sid="([^"]+)"`)
 	xmlDeclRe  = regexp.MustCompile(`(?s)<\?xml.*?\?>`)
 	docTypeRe  = regexp.MustCompile(`(?s)<!DOCTYPE[^>]*>`)
@@ -198,6 +199,11 @@ func inlineSVGRefs(htmlDoc, base string) (string, error) {
 			return tag
 		}
 
+		alt := ""
+		if a := altRe.FindStringSubmatch(tag); a != nil {
+			alt = a[1]
+		}
+
 		if !*unsafeSVG {
 			warnings, verr := vetSVG(data)
 			if verr != nil {
@@ -210,13 +216,36 @@ func inlineSVGRefs(htmlDoc, base string) (string, error) {
 		}
 
 		count++
-		return namespaceIDs(cleanSVG(string(data)), count)
+		return labelSVG(namespaceIDs(cleanSVG(string(data)), count), alt)
 	})
 
 	if outer != nil {
 		return "", outer
 	}
 	return result, nil
+}
+
+// labelSVG carries the image's alt text onto the inlined element. An <img>
+// announces its alt; a bare <svg> announces nothing, so inlining an otherwise
+// described diagram silently strips its accessible name.
+//
+// Attributes go immediately after the tag name, which stays valid however the
+// tag closes. Anything the file already declares for itself is left alone.
+func labelSVG(svg, alt string) string {
+	if alt == "" || !strings.HasPrefix(svg, "<svg") {
+		return svg
+	}
+
+	end := strings.IndexByte(svg, '>')
+	if end < 0 {
+		return svg
+	}
+	open := svg[:end]
+	if strings.Contains(open, "role=") || strings.Contains(open, "aria-label=") {
+		return svg
+	}
+
+	return fmt.Sprintf(`<svg role="img" aria-label="%s"%s`, alt, svg[len("<svg"):])
 }
 
 // cleanSVG strips the prolog so the element can sit inside an HTML document.

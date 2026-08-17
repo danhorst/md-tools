@@ -241,6 +241,26 @@ An SVG that loads external resources SHALL likewise be reported rather than refu
 - **WHEN** an inlined SVG references an external image or stylesheet
 - **THEN** a warning naming the file is written to standard error and the SVG is still inlined
 
+### Requirement: An inlined SVG keeps its accessible name
+
+An `img` element announces its alt text; a bare `svg` element announces nothing.
+When an image reference carries alt text, the system SHALL give the inlined element that text as its accessible name, so making a document self-contained does not strip the description.
+
+#### Scenario: Alt text becomes the accessible name
+
+- **WHEN** `-inline-svg` inlines an image whose reference carries alt text
+- **THEN** the resulting `svg` element carries that text as its accessible name
+
+#### Scenario: Empty alt is left alone
+
+- **WHEN** the reference carries no alt text
+- **THEN** no accessible name is invented for it
+
+#### Scenario: The file's own declaration wins
+
+- **WHEN** the referenced SVG already declares an accessible name or role
+- **THEN** that declaration is preserved rather than overridden
+
 ### Requirement: Resolving SVG references
 
 Relative SVG references SHALL resolve against the input file's directory.

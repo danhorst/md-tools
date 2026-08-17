@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" id="flow" width="420" height="90" viewBox="0 0 420 90">
+<style>#flow .box{fill:#fffff8;stroke:#57606a;stroke-width:1.5}#flow text{font:12px Palatino,Georgia,serif;fill:#111}#flow .arr{stroke:#57606a;stroke-width:1.5;fill:none}</style>
+<defs><marker id="tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#57606a"/></marker></defs>
+<rect class="box" x="4" y="28" width="96" height="34" rx="3"/><text x="24" y="50">doc.md</text>
+<line class="arr" x1="104" y1="45" x2="150" y2="45" marker-end="url(#tip)"/>
+<rect class="box" x="156" y="28" width="104" height="34" rx="3"/><text x="176" y="50">mdhtml</text>
+<line class="arr" x1="264" y1="45" x2="310" y2="45" marker-end="url(#tip)"/>
+<rect class="box" x="316" y="28" width="96" height="34" rx="3"/><text x="342" y="50">HTML</text>
+</svg>

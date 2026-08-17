@@ -15,6 +15,7 @@
 - **`mdfootnote`** — recovery no longer swallows the rest of the document. The capture for a note's content matched any tag, including the note's own closing one, so it ran to the last `</span>` in the file: on any document with two or more sidenotes it absorbed the following body text and notes into the first definition. The shipped `complex` fixture did not round-trip, and its golden committed that output as correct. Recovery is now bounded to the note's own terminator.
 - **`mdfootnote`** — recovery tolerates whatever whitespace separates the marker's elements, so it works whether the markup is attached, on its own line, or space-joined. `mdsidenote | mdjoin | mdfootnote` and the `mdsplit` equivalent previously produced no footnotes at all, failing silently.
 - **`mdfootnote`** — emphasis keeps its `_` delimiter instead of being renormalized to `*`, so a note's markup survives the round trip.
+- **`mdhtml`** — an inlined SVG keeps the alt text its image reference carried, as `role="img"` and an accessible name. An `img` announces its alt; a bare `svg` announces nothing, so making a document self-contained used to strip the description. An empty alt is left alone, and a file declaring its own role or label keeps it.
 - **`mdwrap`** — an HTML tag is now one unbreakable token. Wrapping used to break between a tag's name and its attributes, producing markup `mdfootnote` could no longer recognize. An angle bracket that opens no tag, as in `a < b`, is still ordinary text.
 
 ### Changes
@@ -22,6 +23,8 @@
 - **`mdsidenote`** — the marker attaches to the text the footnote reference followed, rather than starting a new line. A newline inside a paragraph is a space, so the marker previously rendered detached from what it annotates. **This changes `mdsidenote`'s output**; existing documents still convert back with `mdfootnote`, and `mdfootnote | mdsidenote` migrates them to the new form.
 - `AGENTS.md` gains an "Output Formats" section permitting markdown → other-text-format tools, exempting them from idempotency and the `.out.md` fixture convention, and stating that tools requiring an external runtime do not belong in this repository.
 - Fixtures may supply per-fixture command-line arguments in an optional `<name>.flags` file, and the golden sibling is now discovered as `<name>.out.<ext>` rather than assumed to be `.out.md`. Idempotency is only asserted for tools whose output is markdown.
+- `examples/showcase.md` exercises every construct `mdhtml` renders on one page, and is the input for a new layout test suite.
+- Layout tests measure the rendered stylesheet in headless Chrome, asserting geometric relationships — one shared right edge across the main column, footnote text on the prose edge, task checkboxes aligned with bullets, no horizontal overflow at any width. Six layout defects had shipped past a green fixture suite, which only compares markup. They skip when no browser is found; set `MD_TOOLS_CHROME` to point at one.
 - Frontmatter detection moves out of `markdown.Transform` into `markdown.SplitFrontmatter`. No behavior change — every existing fixture passes unaltered.
 
 ## [1.1.6] - 2026-08-06
