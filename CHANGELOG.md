@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-17
+
 ### New tools
 
 - **`mdhtml`** — render a markdown document to standalone HTML. Emits a complete document by default (`-fragment` for body content only), with an embedded Tufte-derived stylesheet sized to `mdsidenote`'s sidenote markup — override with `-css FILE`, drop with `-no-css`. `-title` sets the document title, defaulting to the input file's base name. YAML frontmatter is stripped rather than rendered. `-inline-svg` replaces referenced `.svg` files with their contents inline, namespacing identifiers so the same diagram can appear twice without colliding; relative references resolve against the input file's directory, or `-base DIR` when reading from stdin. `-w` is refused, since it would overwrite the markdown source with HTML — use `-i FILE` or shell redirection.
@@ -145,7 +147,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/danhorst/md-tools/compare/1.1.6...1.2.0
 [1.1.6]: https://github.com/danhorst/md-tools/compare/1.1.5...1.1.6
 [1.1.5]: https://github.com/danhorst/md-tools/compare/1.1.4...1.1.5
 [1.1.4]: https://github.com/danhorst/md-tools/compare/1.1.3...1.1.4
