@@ -15,7 +15,9 @@ import (
 	"sort"
 	"strings"
 
-	htmltomd "github.com/JohannesKaufmann/html-to-markdown/v2"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/converter"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/base"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/commonmark"
 	"github.com/dbh/md-tools/internal/cli"
 )
 
@@ -37,11 +39,36 @@ type sidenote struct {
 	content string // HTML content (will be converted to markdown)
 }
 
-// sidenotePattern matches the full sidenote HTML block
+// gap matches whatever whitespace separates the marker's elements. mdsidenote
+// writes newlines, but mdjoin and mdsplit rewrite them as spaces and mdwrap may
+// leave none, so recovery must not depend on the layout. A blank line is
+// deliberately not allowed: that would mean the elements sit in different
+// paragraphs and are not one marker.
+const gap = `[ \t]*\n?[ \t]*`
+
+// sidenotePattern matches the full sidenote HTML block.
+//
+// The content capture ends at this note's own closing parenthesis span. Matching
+// tags generically instead would run to the last </span> in the document, since
+// a closing tag looks like any other — which swallowed every following note and
+// paragraph.
 var sidenotePattern = regexp.MustCompile(
-	`\n<label for="sidenote-(\d+)" class="margin-toggle sidenote-number"></label>\n` +
-		`<input type="checkbox" id="sidenote-\d+" class="margin-toggle"/>\n` +
-		`<span class="sidenote">([^<]*(?:<[^>]+>[^<]*)*)</span>`,
+	gap + `<label for="sidenote-(\d+)" class="margin-toggle sidenote-number"></label>` +
+		gap + `<input type="checkbox" id="sidenote-\d+" class="margin-toggle"/>` +
+		gap + `<span class="sidenote">((?s:.*?)<span class="hidden">\)[^<]*</span>)</span>`,
+)
+
+// markdownConverter renders a sidenote's HTML back to markdown. The package's
+// ConvertString helper hardcodes its plugins, so the converter is built here to
+// pin the emphasis delimiter to the underscore the note was written with —
+// otherwise a round trip silently renormalizes _like this_ to *like this*.
+var markdownConverter = converter.NewConverter(
+	converter.WithPlugins(
+		base.NewBasePlugin(),
+		commonmark.NewCommonmarkPlugin(
+			commonmark.WithEmDelimiter("_"),
+		),
+	),
 )
 
 // hiddenSpanPattern matches the hidden paren spans
@@ -99,7 +126,7 @@ func transform(content string) string {
 		htmlContent = strings.TrimSpace(htmlContent)
 
 		// Convert HTML to markdown
-		mdContent, err := htmltomd.ConvertString(htmlContent)
+		mdContent, err := markdownConverter.ConvertString(htmlContent)
 		if err != nil {
 			// Fallback: use content as-is
 			mdContent = htmlContent

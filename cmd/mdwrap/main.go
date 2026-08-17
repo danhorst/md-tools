@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/dbh/md-tools/internal/cli"
@@ -56,7 +57,7 @@ func wrapFootnote(lines []string) []string {
 	prefix := lines[0][:idx+2] + " "
 	body := append([]string{strings.TrimSpace(lines[0][idx+2:])}, lines[1:]...)
 
-	words := strings.Fields(strings.Join(body, " "))
+	words := tokenize(strings.Join(body, " "))
 	if len(words) == 0 {
 		return []string{strings.TrimRight(prefix, " ")}
 	}
@@ -99,7 +100,7 @@ func wrapParagraph(lines []string) []string {
 	// Join all lines into one, then wrap
 	text := strings.Join(lines, " ")
 
-	words := strings.Fields(text)
+	words := tokenize(text)
 	if len(words) == 0 {
 		return nil
 	}
@@ -144,11 +145,68 @@ func wrapBlockquote(lines []string) []string {
 	})
 }
 
+// tagEnd returns the index just past the HTML tag starting at i, or -1 if no
+// tag starts there. A '<' opens a tag only when followed by '/' or an ASCII
+// letter, and the tag ends at the next '>'. Requiring both is what keeps
+// "a < b" and "5<10" from absorbing the rest of the paragraph.
+func tagEnd(text string, i int) int {
+	if i+1 >= len(text) {
+		return -1
+	}
+	c := text[i+1]
+	isLetter := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+	if c != '/' && !isLetter {
+		return -1
+	}
+	j := strings.IndexByte(text[i:], '>')
+	if j < 0 {
+		return -1
+	}
+	return i + j + 1
+}
+
+// tokenize splits text on whitespace like strings.Fields, except that an HTML
+// tag stays one token. Breaking between a tag's name and its attributes leaves
+// markup that mdfootnote can no longer recognize, so the sidenote round-trip
+// would not survive wrapping.
+func tokenize(text string) []string {
+	var tokens []string
+	var cur strings.Builder
+
+	flush := func() {
+		if cur.Len() > 0 {
+			tokens = append(tokens, cur.String())
+			cur.Reset()
+		}
+	}
+
+	for i := 0; i < len(text); {
+		r, size := utf8.DecodeRuneInString(text[i:])
+		switch {
+		case unicode.IsSpace(r):
+			flush()
+			i += size
+		case r == '<' && tagEnd(text, i) > 0:
+			end := tagEnd(text, i)
+			cur.WriteString(text[i:end])
+			i = end
+		default:
+			cur.WriteRune(r)
+			i += size
+		}
+	}
+	flush()
+
+	return tokens
+}
+
 // wrapToWidth wraps lines to the specified width.
 func wrapToWidth(lines []string, width int) []string {
 	text := strings.Join(lines, " ")
 
-	words := strings.Fields(text)
+	// A tag is one token, so an over-long one overflows its line rather than
+	// being split — the usual treatment for any unbreakable token.
+	words := tokenize(text)
 	if len(words) == 0 {
 		return nil
 	}

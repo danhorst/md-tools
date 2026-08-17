@@ -10,8 +10,16 @@
 
   Inlining moves an SVG out of an image context, where browsers execute no scripts and load nothing external, into the live document where both happen. `mdhtml` therefore refuses to inline an SVG containing a `<script>`, an `on*` handler, a `<foreignObject>`, a `javascript:` URL, a `<use>` pointing at another document, SMIL rewriting a link target, or an `@import`, and refuses any file it cannot parse. `-unsafe-svg` skips the check. Inspection walks the XML token stream rather than matching patterns, so entity-encoded payloads are caught; it is a guard against accident, not a guarantee against a determined attacker. External resource references warn rather than refuse — they leak the reader's address without executing. Remote `.svg` references are never fetched, since that would break deterministic output; they stay `<img>` tags and warn on stderr.
 
+### Bug fixes
+
+- **`mdfootnote`** — recovery no longer swallows the rest of the document. The capture for a note's content matched any tag, including the note's own closing one, so it ran to the last `</span>` in the file: on any document with two or more sidenotes it absorbed the following body text and notes into the first definition. The shipped `complex` fixture did not round-trip, and its golden committed that output as correct. Recovery is now bounded to the note's own terminator.
+- **`mdfootnote`** — recovery tolerates whatever whitespace separates the marker's elements, so it works whether the markup is attached, on its own line, or space-joined. `mdsidenote | mdjoin | mdfootnote` and the `mdsplit` equivalent previously produced no footnotes at all, failing silently.
+- **`mdfootnote`** — emphasis keeps its `_` delimiter instead of being renormalized to `*`, so a note's markup survives the round trip.
+- **`mdwrap`** — an HTML tag is now one unbreakable token. Wrapping used to break between a tag's name and its attributes, producing markup `mdfootnote` could no longer recognize. An angle bracket that opens no tag, as in `a < b`, is still ordinary text.
+
 ### Changes
 
+- **`mdsidenote`** — the marker attaches to the text the footnote reference followed, rather than starting a new line. A newline inside a paragraph is a space, so the marker previously rendered detached from what it annotates. **This changes `mdsidenote`'s output**; existing documents still convert back with `mdfootnote`, and `mdfootnote | mdsidenote` migrates them to the new form.
 - `AGENTS.md` gains an "Output Formats" section permitting markdown → other-text-format tools, exempting them from idempotency and the `.out.md` fixture convention, and stating that tools requiring an external runtime do not belong in this repository.
 - Fixtures may supply per-fixture command-line arguments in an optional `<name>.flags` file, and the golden sibling is now discovered as `<name>.out.<ext>` rather than assumed to be `.out.md`. Idempotency is only asserted for tools whose output is markdown.
 - Frontmatter detection moves out of `markdown.Transform` into `markdown.SplitFrontmatter`. No behavior change — every existing fixture passes unaltered.

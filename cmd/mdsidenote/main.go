@@ -201,8 +201,10 @@ func transform(content string) string {
 		def, hasDef := defs[ref.index]
 
 		if hasDef {
-			// Write the sidenote HTML
-			result.WriteString(fmt.Sprintf("\n<label for=\"sidenote-%d\" class=\"margin-toggle sidenote-number\"></label>\n", num))
+			// Write the sidenote HTML. The marker attaches directly to the text
+			// the reference followed: a newline here would be a space once
+			// rendered, detaching the marker from what it annotates.
+			result.WriteString(fmt.Sprintf("<label for=\"sidenote-%d\" class=\"margin-toggle sidenote-number\"></label>\n", num))
 			result.WriteString(fmt.Sprintf("<input type=\"checkbox\" id=\"sidenote-%d\" class=\"margin-toggle\"/>\n", num))
 			result.WriteString("<span class=\"sidenote\">")
 			result.WriteString("<span class=\"hidden\">(</span>")
