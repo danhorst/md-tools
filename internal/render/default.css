@@ -22,7 +22,8 @@ html {
 body {
   counter-reset: sidenote-counter;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  /* Side padding leaves room for footnote numbers to hang outside the measure. */
+  padding: 2rem 2.5rem;
   max-width: 1400px;
   font-family: Palatino, "Palatino Linotype", Georgia, serif;
   line-height: 1.6;
@@ -93,14 +94,21 @@ blockquote p:last-child {
 .markdown-alert-warning   { --alert-accent: #9a6700; }
 .markdown-alert-caution   { --alert-accent: #cf222e; }
 
+/* The browser default is 40px — nearly 3em, deep enough to read as accidental.
+   Each nesting level adds its own, so depth still shows. */
+ul, ol {
+  padding-left: 1.5em;
+}
+
 /* A task list item already has a marker, so the bullet or number would be
    redundant. Matches how GitHub renders them. */
 li:has(> input[type="checkbox"]) {
   list-style: none;
 }
 
+/* Pulled left so the box lands where a bullet would, not where the text does. */
 li > input[type="checkbox"] {
-  margin: 0 0.4em 0 -1.35em;
+  margin: 0 0.4em 0 -1.15em;
   vertical-align: middle;
 }
 
@@ -194,11 +202,16 @@ th {
   position: relative;
 }
 
+/* Hung into the channel between the text column and the note, so every line of
+   the note shares one left edge. The gap is in rem, not em: this runs at a
+   different size from its parent, and em here would scale with the wrong font. */
 .sidenote::before {
-  content: counter(sidenote-counter) " ";
+  content: counter(sidenote-counter);
+  position: absolute;
+  right: calc(100% + 0.4rem);
+  top: 0;
   font-size: 0.7rem;
-  vertical-align: super;
-  line-height: 0;
+  white-space: nowrap;
 }
 
 /* Parentheses exist for plain-text extraction, not for display. */
@@ -226,10 +239,34 @@ label.margin-toggle:not(.sidenote-number) {
   font-size: 0.9rem;
 }
 
-/* --- Narrow screens --------------------------------------------------- */
-/* Sidenotes collapse into tap-to-reveal notes; the checkbox does the work. */
+/* Note text sits on the same left edge as the prose, with the numbers hanging
+   into the margin. Positioning from the right edge right-aligns them for free,
+   so 1. and 10. line up without any width arithmetic. */
+.footnotes ol {
+  list-style: none;
+  counter-reset: footnote;
+  margin-left: 0;
+  padding-left: 0;
+}
 
-@media (max-width: 1000px) {
+.footnotes li {
+  counter-increment: footnote;
+  position: relative;
+}
+
+.footnotes li::before {
+  content: counter(footnote) ".";
+  position: absolute;
+  right: calc(100% + 1em);
+  white-space: nowrap;
+}
+
+/* --- Narrow screens --------------------------------------------------- */
+/* Sidenotes collapse into tap-to-reveal notes; the checkbox does the work.
+   Scoped to screen: a letter page is ~672px of content, so an unscoped
+   max-width query would match in print and undo the layout below. */
+
+@media screen and (max-width: 1000px) {
   body {
     padding: 1.5rem 1rem;
   }
@@ -252,6 +289,24 @@ label.margin-toggle:not(.sidenote-number) {
     background: #f0efe6;
     border-radius: 3px;
   }
+
+  /* No channel to hang into once the note spans the full width. */
+  .sidenote::before {
+    position: static;
+    margin-right: 0.3rem;
+    vertical-align: super;
+    line-height: 0;
+  }
+
+  /* Nor any margin, at this padding — numbers return to the gutter. */
+  .footnotes li {
+    padding-left: 2.2em;
+  }
+
+  .footnotes li::before {
+    right: auto;
+    left: 0;
+  }
 }
 
 /* --- Print ------------------------------------------------------------ */
@@ -259,7 +314,10 @@ label.margin-toggle:not(.sidenote-number) {
 @media print {
   @page {
     size: letter;
-    margin: 1in 1in 1in 1in;
+    /* Half the left margin lives inside the page box, as body padding, so
+       hanging footnote numbers have somewhere to sit. Content outside the page
+       box is clipped. The visible text margin is still 1in. */
+    margin: 1in 1in 1in 0.5in;
   }
 
   html {
@@ -268,7 +326,7 @@ label.margin-toggle:not(.sidenote-number) {
 
   body {
     max-width: none;
-    padding: 0;
+    padding: 0 0 0 0.5in;
     background: #fff;
     color: #000;
   }
