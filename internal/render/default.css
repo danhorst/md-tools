@@ -104,12 +104,18 @@ ul, ol {
    redundant. Matches how GitHub renders them. */
 li:has(> input[type="checkbox"]) {
   list-style: none;
+  position: relative;
 }
 
-/* Pulled left so the box lands where a bullet would, not where the text does. */
+/* Out of flow, so the label starts on the same edge as a bulleted item's text
+   instead of being pushed right by the box. The offset centers the box on the
+   axis a bullet glyph sits on — a 13px box beside a 3px dot looks shifted if
+   only their left edges match. */
 li > input[type="checkbox"] {
-  margin: 0 0.4em 0 -1.15em;
-  vertical-align: middle;
+  position: absolute;
+  left: -1.29rem;
+  top: 0.38rem;
+  margin: 0;
 }
 
 hr {
