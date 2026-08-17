@@ -18,7 +18,7 @@ import (
 	"github.com/JohannesKaufmann/html-to-markdown/v2/converter"
 	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/base"
 	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/commonmark"
-	"github.com/dbh/md-tools/internal/cli"
+	"github.com/danhorst/md-tools/internal/cli"
 )
 
 var flags = cli.RegisterFlags()

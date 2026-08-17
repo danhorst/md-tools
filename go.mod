@@ -1,4 +1,4 @@
-module github.com/dbh/md-tools
+module github.com/danhorst/md-tools
 
 go 1.25.0
 

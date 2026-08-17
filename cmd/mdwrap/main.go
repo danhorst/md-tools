@@ -17,8 +17,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/dbh/md-tools/internal/cli"
-	"github.com/dbh/md-tools/internal/markdown"
+	"github.com/danhorst/md-tools/internal/cli"
+	"github.com/danhorst/md-tools/internal/markdown"
 )
 
 var (

@@ -16,8 +16,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/dbh/md-tools/internal/cli"
-	"github.com/dbh/md-tools/internal/markdown"
+	"github.com/danhorst/md-tools/internal/cli"
+	"github.com/danhorst/md-tools/internal/markdown"
 	"github.com/yuin/goldmark"
 	goldast "github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/text"
