@@ -38,14 +38,19 @@ func transform(content string) string {
 func unwrapParagraph(lines []string) []string {
 	// Check if last line has explicit line break (two trailing spaces)
 	hasHardBreak := len(lines) > 0 && strings.HasSuffix(lines[len(lines)-1], "  ")
+	indent := markdown.LeadingIndent(lines)
 
 	// Join all lines into one
 	text := strings.Join(lines, " ")
 	// Normalize multiple spaces
-	text = strings.Join(strings.Fields(text), " ")
+	text = markdown.CollapseSpaces(text)
 
 	if hasHardBreak {
 		text += "  "
+	}
+
+	if indent != "" {
+		text = indent + text
 	}
 
 	return []string{text}
@@ -61,5 +66,5 @@ func unwrapBlockquote(lines []string) []string {
 // joinLines joins lines into a single line.
 func joinLines(lines []string) string {
 	text := strings.Join(lines, " ")
-	return strings.Join(strings.Fields(text), " ")
+	return markdown.CollapseSpaces(text)
 }

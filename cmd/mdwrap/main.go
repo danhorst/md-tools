@@ -96,6 +96,7 @@ func wrapFootnote(lines []string) []string {
 func wrapParagraph(lines []string) []string {
 	// Check if last line has explicit line break (two trailing spaces)
 	hasHardBreak := len(lines) > 0 && strings.HasSuffix(lines[len(lines)-1], "  ")
+	indent := markdown.LeadingIndent(lines)
 
 	// Join all lines into one, then wrap
 	text := strings.Join(lines, " ")
@@ -105,13 +106,17 @@ func wrapParagraph(lines []string) []string {
 		return nil
 	}
 
+	// An indented continuation paragraph keeps its indent; the wrapped text
+	// takes the remaining width so lines still fit the column.
+	width := *wrapWidth - len(indent)
+
 	var result []string
 	var currentLine strings.Builder
 
 	for _, word := range words {
 		if currentLine.Len() == 0 {
 			currentLine.WriteString(word)
-		} else if utf8.RuneCountInString(currentLine.String())+1+utf8.RuneCountInString(word) <= *wrapWidth {
+		} else if utf8.RuneCountInString(currentLine.String())+1+utf8.RuneCountInString(word) <= width {
 			currentLine.WriteString(" ")
 			currentLine.WriteString(word)
 		} else {
@@ -127,6 +132,12 @@ func wrapParagraph(lines []string) []string {
 			lastLine += "  "
 		}
 		result = append(result, lastLine)
+	}
+
+	if indent != "" {
+		for i := range result {
+			result[i] = indent + result[i]
+		}
 	}
 
 	return result
@@ -149,29 +160,32 @@ func wrapBlockquote(lines []string) []string {
 // tag starts there. A '<' opens a tag only when followed by '/' or an ASCII
 // letter, and the tag ends at the next '>'. Requiring both is what keeps
 // "a < b" and "5<10" from absorbing the rest of the paragraph.
-func tagEnd(text string, i int) int {
-	if i+1 >= len(text) {
+func tagEnd(runes []rune, i int) int {
+	if i+1 >= len(runes) {
 		return -1
 	}
-	c := text[i+1]
+	c := runes[i+1]
 	isLetter := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 	if c != '/' && !isLetter {
 		return -1
 	}
-	j := strings.IndexByte(text[i:], '>')
-	if j < 0 {
-		return -1
+	for j := i + 1; j < len(runes); j++ {
+		if runes[j] == '>' {
+			return j + 1
+		}
 	}
-	return i + j + 1
+	return -1
 }
 
 // tokenize splits text on whitespace like strings.Fields, except that an HTML
-// tag stays one token. Breaking between a tag's name and its attributes leaves
-// markup that mdfootnote can no longer recognize, so the sidenote round-trip
-// would not survive wrapping.
+// tag and an inline code span each stay one token. Breaking between a tag's
+// name and its attributes leaves markup that mdfootnote can no longer
+// recognize, so the sidenote round-trip would not survive wrapping; breaking a
+// code span would collapse the interior spaces GFM keeps significant.
 func tokenize(text string) []string {
 	var tokens []string
 	var cur strings.Builder
+	runes := []rune(text)
 
 	flush := func() {
 		if cur.Len() > 0 {
@@ -180,19 +194,23 @@ func tokenize(text string) []string {
 		}
 	}
 
-	for i := 0; i < len(text); {
-		r, size := utf8.DecodeRuneInString(text[i:])
+	for i := 0; i < len(runes); {
+		r := runes[i]
 		switch {
 		case unicode.IsSpace(r):
 			flush()
-			i += size
-		case r == '<' && tagEnd(text, i) > 0:
-			end := tagEnd(text, i)
-			cur.WriteString(text[i:end])
+			i++
+		case r == '<' && tagEnd(runes, i) > 0:
+			end := tagEnd(runes, i)
+			cur.WriteString(string(runes[i:end]))
+			i = end
+		case r == '`' && markdown.CodeSpanLen(runes, i) > 0:
+			end := i + markdown.CodeSpanLen(runes, i)
+			cur.WriteString(string(runes[i:end]))
 			i = end
 		default:
 			cur.WriteRune(r)
-			i += size
+			i++
 		}
 	}
 	flush()

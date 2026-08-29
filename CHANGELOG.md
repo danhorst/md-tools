@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Bug fixes
+
+- **`mdsplit`** — paragraph reflow no longer collapses consecutive spaces inside an inline code span. Whitespace was normalized with `strings.Fields` over the whole line, which rewrote `` `a  b` `` to `` `a b` `` and changed the span's contents, which GFM keeps verbatim. Double spaces in ordinary prose still collapse. This also applies to `mdjoin`, `mdunwrap`, and `mdwrap`.
+- **`mdsplit`** — an indented paragraph that continues a list item across a blank line keeps its indentation. Reflow discarded the leading whitespace, so the paragraph detached from its list item and rendered at the top level. This also applies to `mdjoin`, `mdunwrap`, and `mdwrap`.
+
 ## [1.2.0] - 2026-08-17
 
 ### New tools

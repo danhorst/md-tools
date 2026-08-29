@@ -38,14 +38,21 @@ func transform(content string) string {
 // splitParagraph joins lines and splits into sentences.
 func splitParagraph(lines []string) []string {
 	hasHardBreak := len(lines) > 0 && strings.HasSuffix(lines[len(lines)-1], "  ")
+	indent := markdown.LeadingIndent(lines)
 
 	text := strings.Join(lines, " ")
-	text = strings.Join(strings.Fields(text), " ")
+	text = markdown.CollapseSpaces(text)
 
 	sentences := splitSentences(text)
 
 	if hasHardBreak && len(sentences) > 0 {
 		sentences[len(sentences)-1] += "  "
+	}
+
+	if indent != "" {
+		for i := range sentences {
+			sentences[i] = indent + sentences[i]
+		}
 	}
 
 	return sentences
@@ -184,7 +191,7 @@ func footnoteLen(runes []rune, start int) int {
 func spanLen(runes []rune, i int) int {
 	switch {
 	case runes[i] == '`':
-		return codeSpanLen(runes, i)
+		return markdown.CodeSpanLen(runes, i)
 	case runes[i] == '^':
 		return footnoteLen(runes, i) // inline footnote ^[...]
 	case runes[i] == '[':
@@ -193,30 +200,6 @@ func spanLen(runes []rune, i int) int {
 		return emphasisLen(runes, i)
 	case runes[i] == '~':
 		return strikeLen(runes, i)
-	}
-	return 0
-}
-
-// codeSpanLen returns the length of a backtick code span at i, closed by a run
-// of the same number of backticks, or 0 if unterminated.
-func codeSpanLen(runes []rune, i int) int {
-	n := 0
-	for i+n < len(runes) && runes[i+n] == '`' {
-		n++
-	}
-	for j := i + n; j < len(runes); {
-		if runes[j] != '`' {
-			j++
-			continue
-		}
-		m := 0
-		for j+m < len(runes) && runes[j+m] == '`' {
-			m++
-		}
-		if m == n {
-			return j + m - i
-		}
-		j += m
 	}
 	return 0
 }
@@ -349,6 +332,6 @@ func splitBlockquote(lines []string) []string {
 // splitToSentences joins lines and splits into sentences.
 func splitToSentences(lines []string) []string {
 	text := strings.Join(lines, " ")
-	text = strings.Join(strings.Fields(text), " ")
+	text = markdown.CollapseSpaces(text)
 	return splitSentences(text)
 }
