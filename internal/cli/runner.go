@@ -73,6 +73,11 @@ func flagTypeName(f *flag.Flag) string {
 // file argument; -i reads stdin and writes the result to the single file
 // argument. The default reads from files (or stdin) and writes to stdout.
 func Run(toolName string, flags *Flags, args []string, transform TransformFunc) error {
+	return RunE(toolName, flags, args, func(s string) (string, error) { return transform(s), nil })
+}
+
+// RunE runs a transform that can fail, without writing output on failure.
+func RunE(toolName string, flags *Flags, args []string, transform func(string) (string, error)) error {
 	if flags.ShowVersion {
 		fmt.Println(toolName, Version)
 		return nil
@@ -93,7 +98,10 @@ func Run(toolName string, flags *Flags, args []string, transform TransformFunc) 
 		if err != nil {
 			return err
 		}
-		result := transform(string(data))
+		result, err := transform(string(data))
+		if err != nil {
+			return err
+		}
 		return os.WriteFile(args[0], []byte(result), 0644)
 	}
 
@@ -109,20 +117,10 @@ func Run(toolName string, flags *Flags, args []string, transform TransformFunc) 
 		return nil
 	}
 
-	// Default: read from files or stdin, write to stdout
-	//
-	// TODO: only args[0] is read; any further arguments are silently ignored,
-	// which contradicts the CLI contract in AGENTS.md. cli.Input already
-	// concatenates them and is unused — see the note there.
-	var input io.ReadCloser
-	if len(args) == 0 {
-		input = os.Stdin
-	} else {
-		f, err := os.Open(args[0])
-		if err != nil {
-			return err
-		}
-		input = f
+	// Files take precedence over stdin and form one input document.
+	input, err := Input(args)
+	if err != nil {
+		return err
 	}
 	defer input.Close()
 
@@ -131,7 +129,10 @@ func Run(toolName string, flags *Flags, args []string, transform TransformFunc) 
 		return err
 	}
 
-	result := transform(string(data))
+	result, err := transform(string(data))
+	if err != nil {
+		return err
+	}
 	_, err = os.Stdout.WriteString(result)
 	return err
 }
@@ -146,13 +147,16 @@ func isStdinTerminal() bool {
 }
 
 // processFile transforms a file in place, only writing if content changed.
-func processFile(path string, transform TransformFunc) error {
+func processFile(path string, transform func(string) (string, error)) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
 
-	result := transform(string(data))
+	result, err := transform(string(data))
+	if err != nil {
+		return err
+	}
 
 	// Only write if content changed
 	if result == string(data) {

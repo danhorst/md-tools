@@ -13,6 +13,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/JohannesKaufmann/html-to-markdown/v2/converter"
@@ -53,8 +54,8 @@ const gap = `[ \t]*\n?[ \t]*`
 // a closing tag looks like any other — which swallowed every following note and
 // paragraph.
 var sidenotePattern = regexp.MustCompile(
-	gap + `<label for="sidenote-(\d+)" class="margin-toggle sidenote-number"></label>` +
-		gap + `<input type="checkbox" id="sidenote-\d+" class="margin-toggle"/>` +
+	gap + `<label for="sidenote-(\d+)(?:-\d+)?" class="margin-toggle sidenote-number"></label>` +
+		gap + `<input type="checkbox" id="sidenote-\d+(?:-\d+)?" class="margin-toggle"/>` +
 		gap + `<span class="sidenote">((?s:.*?)<span class="hidden">\)[^<]*</span>)</span>`,
 )
 
@@ -88,8 +89,10 @@ func transform(content string) string {
 		// match[4], match[5] = span content
 
 		numStr := content[match[2]:match[3]]
-		var num int
-		fmt.Sscanf(numStr, "%d", &num)
+		num, err := strconv.Atoi(numStr)
+		if err != nil || num <= 0 {
+			continue
+		}
 
 		spanContent := content[match[4]:match[5]]
 
@@ -101,6 +104,10 @@ func transform(content string) string {
 		})
 	}
 
+	if len(sidenotes) == 0 {
+		return content
+	}
+
 	// Sort by position (should already be in order, but be safe)
 	sort.Slice(sidenotes, func(i, j int) bool {
 		return sidenotes[i].start < sidenotes[j].start
@@ -108,7 +115,8 @@ func transform(content string) string {
 
 	// Build result
 	var result strings.Builder
-	var footnotes []string
+	footnotes := make(map[int]string)
+	var numbers []int
 	lastEnd := 0
 
 	for _, sn := range sidenotes {
@@ -134,10 +142,10 @@ func transform(content string) string {
 		mdContent = strings.TrimSpace(mdContent)
 
 		// Store footnote definition
-		for len(footnotes) < sn.number {
-			footnotes = append(footnotes, "")
+		if _, exists := footnotes[sn.number]; !exists {
+			numbers = append(numbers, sn.number)
 		}
-		footnotes[sn.number-1] = mdContent
+		footnotes[sn.number] = mdContent
 
 		lastEnd = sn.end
 	}
@@ -149,9 +157,11 @@ func transform(content string) string {
 
 	// Append footnote definitions
 	result.WriteString("\n")
-	for i, fn := range footnotes {
+	sort.Ints(numbers)
+	for _, number := range numbers {
+		fn := footnotes[number]
 		if fn != "" {
-			result.WriteString(fmt.Sprintf("\n[^%d]: %s", i+1, fn))
+			result.WriteString(fmt.Sprintf("\n[^%d]: %s", number, fn))
 		}
 	}
 	result.WriteString("\n")

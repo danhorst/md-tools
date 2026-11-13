@@ -19,7 +19,9 @@ Pre-built binaries are not available at this time.
 ## Usage
 
 These utilities are built with the [Unix Philosophy][4] in mind.
-They accept text via [`STDIN`][5] and output to `STDOUT`.
+They accept text via [`STDIN`][5] or file arguments and output to `STDOUT`.
+Multiple input files are concatenated in argument order, without adding separators, and take precedence over `STDIN`.
+With `-w`, each input file is transformed separately.
 This let's you _chain_ them with [Unix pipes][6] (`|`).
 Use the `-w FILE` flag to replace the contents of `FILE` instead of printing to `STDOUT`.
 Use `-i FILE` to read from `STDIN` and write the result to `FILE` — useful at the end of a pipe chain (e.g. `mdsplit X | mdtable -i X`).
@@ -76,7 +78,8 @@ YAML frontmatter is stripped rather than rendered.
 
 `-inline-svg` replaces referenced `.svg` files with their contents inline, so the document stands on its own with no external assets.
 Identifiers are namespaced per diagram, so the same file can appear twice without its internal styles colliding.
-References resolve against the input file's directory, or `-base DIR` when reading from `STDIN`.
+References resolve against the first input file's directory, or an explicit `-base DIR`.
+Reading from `STDIN` requires `-base DIR`, including when writing with `-i`.
 
 Inlining moves an SVG from an image—where the browser runs no scripts and loads nothing external—into the live document, where it can do both.
 So `mdhtml` refuses to inline an SVG carrying a script, an event handler, a `foreignObject`, a `javascript:` URL, or a reference to another document, and refuses anything it can't parse.

@@ -97,6 +97,10 @@ func transform(content string) string {
 	offset := 0
 	for _, line := range strings.Split(content, "\n") {
 		if m := footnoteDefLineRe.FindStringSubmatchIndex(line); m != nil {
+			if inAnyRange(offset+m[0], offset+m[3]+1, codeRanges) {
+				offset += len(line) + 1
+				continue
+			}
 			label := line[m[2]:m[3]]
 			// m[0] = start of '[', m[3] = end of label, so ']' is at m[3].
 			defs = append(defs, defMatch{

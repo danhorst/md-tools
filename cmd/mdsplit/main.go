@@ -67,11 +67,40 @@ func splitSentences(text string) []string {
 	var sentences []string
 	var current strings.Builder
 	runes := []rune(text)
+	squareEnds := make(map[int]int)
+	var opens []int
+	for i, r := range runes {
+		if r == '[' {
+			opens = append(opens, i)
+		}
+		if r == ']' && len(opens) > 0 {
+			start := opens[len(opens)-1]
+			opens = opens[:len(opens)-1]
+			squareEnds[start] = i + 1
+		}
+	}
 
 	for i := 0; i < len(runes); i++ {
 		// Inline span (code, link, emphasis, strikethrough, footnote) —
 		// copy verbatim so a sentence boundary inside it never splits.
-		if n := spanLen(runes, i); n > 0 {
+		n := 0
+		if runes[i] == '[' {
+			if end, ok := squareEnds[i]; ok {
+				n = end - i
+				if end < len(runes) {
+					if runes[end] == '[' {
+						if next, ok := squareEnds[end]; ok {
+							n = next - i
+						}
+					} else if runes[end] == '(' {
+						n += balancedLen(runes, end, '(', ')')
+					}
+				}
+			}
+		} else {
+			n = spanLen(runes, i)
+		}
+		if n > 0 {
 			end := i + n
 			for k := i; k < end; k++ {
 				current.WriteRune(runes[k])

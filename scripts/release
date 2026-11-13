@@ -36,9 +36,8 @@ sd '## \[Unreleased\]' "## [Unreleased]\n\n## [$BARE] - $TODAY" "$CHANGELOG"
 
 # Update comparison links
 PREV_TAG=$(git tag --sort=-version:refname | grep '^v' | head -1)
-PREV_BARE="${PREV_TAG#v}"
 sd "\[Unreleased\]: https://github\.com/danhorst/md-tools/compare/.*\.\.\.HEAD" \
-   "[Unreleased]: https://github.com/danhorst/md-tools/compare/${VERSION}...HEAD\n[$BARE]: https://github.com/danhorst/md-tools/compare/${PREV_BARE}...${BARE}" \
+   "[Unreleased]: https://github.com/danhorst/md-tools/compare/${VERSION}...HEAD\n[$BARE]: https://github.com/danhorst/md-tools/compare/${PREV_TAG}...${VERSION}" \
    "$CHANGELOG"
 
 # 2. Bump the Version constant
@@ -46,7 +45,7 @@ sd 'const Version = "[^"]+"' "const Version = \"$BARE\"" "$VERSION_FILE"
 
 # 3. Commit and tag
 git add CHANGELOG.md "$VERSION_FILE"
-git commit -m "Release $VERSION"
+git commit -m "${RELEASE_COMMIT_PREFIX:-}Release $VERSION"
 git tag -a "$VERSION" -m "$VERSION"
 
 # 4. Push — CI handles release creation and formula update

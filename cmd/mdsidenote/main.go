@@ -26,6 +26,7 @@ import (
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 )
 
 var flags = cli.RegisterFlags()
@@ -68,6 +69,7 @@ func transform(content string) string {
 	// Create goldmark with footnote extension
 	md := goldmark.New(
 		goldmark.WithExtensions(extension.Footnote),
+		goldmark.WithParserOptions(parser.WithInlineParsers(util.Prioritized(positionedFootnoteParser{extension.NewFootnoteParser()}, 100))),
 		goldmark.WithRendererOptions(html.WithUnsafe()),
 	)
 
@@ -90,7 +92,12 @@ func transform(content string) string {
 		switch node := n.(type) {
 		case *extast.FootnoteLink:
 			// Find the extent in source
-			start, end := findFootnoteRefExtent(node.Index, source)
+			position, ok := node.AttributeString("source-range")
+			if !ok {
+				return ast.WalkContinue, nil
+			}
+			r := position.(markdown.ByteRange)
+			start, end := r.Start, r.End
 			if start >= 0 && end >= 0 {
 				refs = append(refs, footnoteRef{
 					start: start,
@@ -123,16 +130,6 @@ func transform(content string) string {
 	sort.Slice(refs, func(i, j int) bool {
 		return refs[i].start < refs[j].start
 	})
-
-	// Assign sidenote numbers in order of appearance
-	sidenoteNum := make(map[int]int) // goldmark index -> sidenote number
-	nextNum := 1
-	for _, ref := range refs {
-		if _, exists := sidenoteNum[ref.index]; !exists {
-			sidenoteNum[ref.index] = nextNum
-			nextNum++
-		}
-	}
 
 	// Track which link references are used in footnotes vs body
 	footnoteRefs := make(map[string]bool)
@@ -191,21 +188,32 @@ func transform(content string) string {
 	var result strings.Builder
 	lastEnd := 0
 
+	occurrences := make(map[int]int)
+	numbers := make(map[int]int)
 	for _, ref := range refs {
 		// Write content before this ref, excluding definition ranges
 		before := markdown.ExcludeRanges(string(source[lastEnd:ref.start]), lastEnd, allExcludeRanges)
 		result.WriteString(before)
 
 		// Get the sidenote number and content
-		num := sidenoteNum[ref.index]
+		num, known := numbers[ref.index]
+		if !known {
+			num = len(numbers) + 1
+			numbers[ref.index] = num
+		}
+		occurrences[ref.index]++
+		marker := strconv.Itoa(num)
+		if occurrences[ref.index] > 1 {
+			marker += "-" + strconv.Itoa(occurrences[ref.index])
+		}
 		def, hasDef := defs[ref.index]
 
 		if hasDef {
 			// Write the sidenote HTML. The marker attaches directly to the text
 			// the reference followed: a newline here would be a space once
 			// rendered, detaching the marker from what it annotates.
-			result.WriteString(fmt.Sprintf("<label for=\"sidenote-%d\" class=\"margin-toggle sidenote-number\"></label>\n", num))
-			result.WriteString(fmt.Sprintf("<input type=\"checkbox\" id=\"sidenote-%d\" class=\"margin-toggle\"/>\n", num))
+			result.WriteString(fmt.Sprintf("<label for=\"sidenote-%s\" class=\"margin-toggle sidenote-number\"></label>\n", marker))
+			result.WriteString(fmt.Sprintf("<input type=\"checkbox\" id=\"sidenote-%s\" class=\"margin-toggle\"/>\n", marker))
 			result.WriteString("<span class=\"sidenote\">")
 			result.WriteString("<span class=\"hidden\">(</span>")
 			result.WriteString(def.content)
@@ -223,12 +231,11 @@ func transform(content string) string {
 	remaining := markdown.ExcludeRanges(string(source[lastEnd:]), lastEnd, allExcludeRanges)
 
 	// Renumber remaining link references
-	remaining = renumberLinkRefs(remaining, linkDefs, refsToRemove)
 
 	remaining = strings.TrimRight(remaining, "\n") + "\n"
 	result.WriteString(remaining)
 
-	return result.String()
+	return renumberLinkRefs(result.String(), linkDefs, refsToRemove)
 }
 
 // renderFootnoteContent renders the content of a footnote to HTML using goldmark
@@ -261,33 +268,22 @@ func renderFootnoteContent(node *extast.Footnote, source []byte, md goldmark.Mar
 	return result
 }
 
-// findFootnoteRefExtent finds the byte range of a footnote reference [^label]
-// This searches for the Nth occurrence of a footnote reference pattern
-func findFootnoteRefExtent(index int, source []byte) (int, int) {
-	// We need to find footnote references in order
-	// Search for [^ patterns and track which index we're at
-	count := 0
-	for i := 0; i < len(source)-2; i++ {
-		if source[i] == '[' && source[i+1] == '^' {
-			// Find the closing ]
-			end := i + 2
-			for end < len(source) && source[end] != ']' && source[end] != '\n' {
-				end++
-			}
-			if end < len(source) && source[end] == ']' {
-				// Check if this is a reference (not a definition - no colon after)
-				afterClose := end + 1
-				if afterClose >= len(source) || source[afterClose] != ':' {
-					count++
-					if count == index {
-						return i, end + 1
-					}
-				}
-			}
-		}
-	}
+// positionedFootnoteParser records positions while the parser consumes real
+// references, excluding code, escaped text and unresolved labels.
+type positionedFootnoteParser struct{ parser.InlineParser }
 
-	return -1, -1
+func (p positionedFootnoteParser) Parse(parent ast.Node, reader text.Reader, pc parser.Context) ast.Node {
+	line, segment := reader.PeekLine()
+	node := p.InlineParser.Parse(parent, reader, pc)
+	if node != nil {
+		start := segment.Start
+		if len(line) > 0 && line[0] == '!' {
+			start++
+		}
+		_, end := reader.Position()
+		node.SetAttributeString("source-range", markdown.ByteRange{Start: start, End: end.Start})
+	}
+	return node
 }
 
 // findFootnoteDefExtent finds the byte range of a footnote definition
@@ -525,24 +521,20 @@ func renumberLinkRefs(text string, linkDefs []linkDef, removed map[string]bool) 
 		}
 	}
 
-	// Replace in text - both usages [text][N] and definitions [N]:
-	result := text
-
-	// Replace reference usages [text][N]
-	for old, new := range renumber {
-		if old != new {
-			re := regexp.MustCompile(`\](\[` + regexp.QuoteMeta(old) + `\])`)
-			result = re.ReplaceAllString(result, "]["+new+"]")
+	// Replace each original label once; generated labels never become input.
+	re := regexp.MustCompile(`(?m)\]\[([0-9]+)\]|^\[([0-9]+)\]:`)
+	return re.ReplaceAllStringFunc(text, func(match string) string {
+		parts := re.FindStringSubmatch(match)
+		if parts[1] != "" {
+			if n, ok := renumber[parts[1]]; ok {
+				return "][" + n + "]"
+			}
 		}
-	}
-
-	// Replace definitions [N]:
-	for old, new := range renumber {
-		if old != new {
-			re := regexp.MustCompile(`(?m)^\[` + regexp.QuoteMeta(old) + `\]:`)
-			result = re.ReplaceAllString(result, "["+new+"]:")
+		if parts[2] != "" {
+			if n, ok := renumber[parts[2]]; ok {
+				return "[" + n + "]:"
+			}
 		}
-	}
-
-	return result
+		return match
+	})
 }

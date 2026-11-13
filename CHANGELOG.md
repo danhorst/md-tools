@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Bug fixes
+
+- Preserve existing output files when `mdhtml` rendering fails; require an explicit SVG base for stdin even with `-i`.
+- Read all positional input files in order instead of silently ignoring files after the first.
+- Use parsed link definitions in `mdref` and `mdinline`, preserving code examples; preserve formatted link labels and inline reference-style images without losing their destinations.
+- Locate sidenote references at parse time, supporting repeated references and ignoring literal references in code. Repeated markers have unique HTML IDs while recovering the same footnote label.
+- Renumber sidenote link references deterministically without cascading replacements, including references preceding the first note.
+- Store recovered footnotes sparsely; leave zero and overflowing note identifiers unchanged instead of panicking or allocating by identifier size.
+- Preserve Setext headings and block boundaries inside blockquotes during paragraph transformations.
+- Preserve indented code in `mdtable` and footnote definitions inside code in `mdfnt`.
+- Namespace SVG IDs and references without rewriting color literals.
+- Avoid quadratic rescanning of unmatched square brackets in `mdsplit`.
+
 ## [1.2.1] - 2026-08-29
 
 ### Bug fixes

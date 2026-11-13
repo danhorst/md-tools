@@ -90,10 +90,16 @@ func transform(content string) string {
 			continue
 		}
 
+		if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
+			result = append(result, line)
+			i++
+			continue
+		}
+
 		// Table: collect consecutive pipe-delimited rows and normalize.
 		if strings.HasPrefix(strings.TrimSpace(line), "|") {
 			var tableLines []string
-			for i < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[i]), "|") {
+			for i < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[i]), "|") && !strings.HasPrefix(lines[i], "    ") && !strings.HasPrefix(lines[i], "\t") {
 				tableLines = append(tableLines, lines[i])
 				i++
 			}

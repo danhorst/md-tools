@@ -88,6 +88,13 @@ func Transform(content string, h Handlers) string {
 			continue
 		}
 
+		// Setext headings are two-line blocks, not prose to join or wrap.
+		if i+1 < len(lines) && isSetextUnderline(lines[i+1]) {
+			result = append(result, line, lines[i+1])
+			i += 2
+			continue
+		}
+
 		// Header
 		if strings.HasPrefix(line, "#") {
 			result = append(result, line)
@@ -160,6 +167,9 @@ func Transform(content string, h Handlers) string {
 				IsTableRow(l) {
 				break
 			}
+			if i+1 < len(lines) && isSetextUnderline(lines[i+1]) {
+				break
+			}
 			// Explicit line break (two trailing spaces) ends the paragraph
 			if strings.HasSuffix(l, "  ") {
 				paraLines = append(paraLines, l)
@@ -188,7 +198,6 @@ func TransformBlockquote(lines []string, flush func([]string) []string) []string
 	if len(lines) == 0 {
 		return nil
 	}
-	const prefix = "> "
 	var result []string
 	var contentLines []string
 
@@ -199,27 +208,54 @@ func TransformBlockquote(lines []string, flush func([]string) []string) []string
 		}
 	}
 
+	var fence string
 	for _, line := range lines {
-		content := strings.TrimPrefix(line, ">")
-		content = strings.TrimPrefix(content, " ")
-
-		// GFM alert header (e.g. [!NOTE]) — flush pending, emit as-is
-		if strings.HasPrefix(content, "[!") && strings.Contains(content, "]") {
-			flushPending()
-			result = append(result, prefix+content)
+		trimmed := strings.TrimLeft(line, " ")
+		content := strings.TrimPrefix(strings.TrimPrefix(trimmed, ">"), " ")
+		plain := strings.TrimSpace(content)
+		if fence != "" {
+			result = append(result, line)
+			if strings.HasPrefix(plain, fence) {
+				fence = ""
+			}
 			continue
 		}
-
-		// Table row — flush pending, emit as-is
-		if IsTableRow(content) {
+		if strings.HasPrefix(plain, "```") || strings.HasPrefix(plain, "~~~") {
 			flushPending()
-			result = append(result, prefix+content)
+			c := plain[0]
+			n := 0
+			for n < len(plain) && plain[n] == c {
+				n++
+			}
+			fence = plain[:n]
+			result = append(result, line)
 			continue
 		}
-
+		if plain == "" || strings.HasPrefix(content, "[!") || IsTableRow(content) ||
+			IsListItem(content) || strings.HasPrefix(plain, ">") || strings.HasPrefix(plain, "#") ||
+			strings.HasPrefix(content, "    ") || strings.HasPrefix(content, "\t") || IsHorizontalRule(content) || isSetextUnderline(content) {
+			flushPending()
+			result = append(result, line)
+			continue
+		}
 		contentLines = append(contentLines, content)
+		if strings.HasSuffix(content, "  ") || strings.HasSuffix(content, "\\") {
+			flushPending()
+		}
 	}
-
 	flushPending()
 	return result
+}
+
+func isSetextUnderline(line string) bool {
+	s := strings.TrimSpace(line)
+	if s == "" || (s[0] != '=' && s[0] != '-') {
+		return false
+	}
+	for i := range s {
+		if s[i] != s[0] {
+			return false
+		}
+	}
+	return true
 }

@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/danhorst/md-tools/internal/cli"
@@ -37,10 +36,6 @@ var (
 	baseDir   = flag.String("base", "", "`DIR` to resolve relative SVG references against (required with -inline-svg on stdin)")
 	unsafeSVG = flag.Bool("unsafe-svg", false, "inline SVG without checking it for scripts and other active content")
 )
-
-// renderErr records a failure inside the transform, which cannot report one
-// through cli.TransformFunc's signature.
-var renderErr error
 
 func main() {
 	// -w rewrites the input file with the result elsewhere in the toolkit.
@@ -74,7 +69,7 @@ func run() error {
 
 	args := flag.Args()
 	var srcPath string
-	if len(args) > 0 {
+	if len(args) > 0 && !flags.InPlace {
 		srcPath = args[0]
 	}
 
@@ -92,19 +87,9 @@ func run() error {
 		docTitle = strings.TrimSuffix(filepath.Base(srcPath), filepath.Ext(srcPath))
 	}
 
-	transform := func(content string) string {
-		out, err := renderDoc(content, docTitle, css, base)
-		if err != nil {
-			renderErr = err
-			return ""
-		}
-		return out
-	}
-
-	if err := cli.Run("mdhtml", flags, args, transform); err != nil {
-		return err
-	}
-	return renderErr
+	return cli.RunE("mdhtml", flags, args, func(content string) (string, error) {
+		return renderDoc(content, docTitle, css, base)
+	})
 }
 
 // stylesheet resolves the CSS to embed. An explicit -css file is read even in
@@ -253,34 +238,4 @@ func cleanSVG(svg string) string {
 	svg = xmlDeclRe.ReplaceAllString(svg, "")
 	svg = docTypeRe.ReplaceAllString(svg, "")
 	return strings.TrimSpace(svg)
-}
-
-// namespaceIDs prefixes every identifier declared in an SVG, along with the
-// references to it, so that inlining two documents cannot collide. Mermaid
-// scopes its internal stylesheet under the root element's id, and generates
-// identical ids for identical diagrams.
-func namespaceIDs(svg string, n int) string {
-	matches := svgIDRe.FindAllStringSubmatch(svg, -1)
-	if len(matches) == 0 {
-		return svg
-	}
-
-	seen := make(map[string]bool)
-	var ids []string
-	for _, m := range matches {
-		if !seen[m[1]] {
-			seen[m[1]] = true
-			ids = append(ids, m[1])
-		}
-	}
-
-	// Longest first, so rewriting "a" cannot corrupt a reference to "ab".
-	sort.Slice(ids, func(i, j int) bool { return len(ids[i]) > len(ids[j]) })
-
-	prefix := fmt.Sprintf("p%d-", n)
-	for _, id := range ids {
-		svg = strings.ReplaceAll(svg, `id="`+id+`"`, `id="`+prefix+id+`"`)
-		svg = strings.ReplaceAll(svg, "#"+id, "#"+prefix+id)
-	}
-	return svg
 }
