@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-13
+
 ### Bug fixes
 
 - Preserve existing output files when `mdhtml` rendering fails; require an explicit SVG base for stdin even with `-i`.
@@ -167,7 +169,8 @@ Ten composable CLI tools for manipulating GitHub Flavored Markdown.
 - **`mdwrap`** — wraps body text to 60 characters (configurable with `-c`). Table and list structure is preserved.
 - **`mdunwrap`** — removes hard line breaks, restoring text into contiguous paragraphs. Table and list structure is preserved.
 
-[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/danhorst/md-tools/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/danhorst/md-tools/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/danhorst/md-tools/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/danhorst/md-tools/compare/1.1.6...1.2.0
 [1.1.6]: https://github.com/danhorst/md-tools/compare/1.1.5...1.1.6
